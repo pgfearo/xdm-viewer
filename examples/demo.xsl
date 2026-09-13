@@ -17,8 +17,6 @@
 
   <xsl:param name="html-file" as="xs:string" select="'out/view-demo.html'"/>
 
-  <xsl:output method="text"/>
-
   <xsl:variable name="html-uri" as="xs:string" select="resolve-uri($html-file, static-base-uri())"/>
 
   <xsl:variable name="profile" as="element()">
@@ -37,12 +35,16 @@
     }"/>
 
   <xsl:template name="xsl:initial-template">
-    <xsl:sequence select="xdm:view-text($value, true()) || '&#10;'"/>
+    <!-- xsl:message rather than the primary output: it isn't subject to a
+         task runner's resultPath redirection, and (with the DeltaXML XSLT
+         extension's Saxon wrapper) is emitted without XML-entity-encoding
+         the ANSI escape codes. -->
+    <xsl:message select="xdm:view-text($value, true())"/>
 
     <xsl:result-document href="{$html-uri}" method="html" indent="yes">
       <xsl:sequence select="xdm:view-html($value)"/>
     </xsl:result-document>
-    <xsl:sequence select="'Wrote ' || $html-uri || '&#10;'"/>
+    <xsl:message select="'Wrote ' || $html-uri"/>
   </xsl:template>
 
 </xsl:stylesheet>
