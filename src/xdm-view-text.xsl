@@ -15,9 +15,6 @@
        this only has to render, not re-classify.
   -->
 
-  <xsl:import href="../../xdm-persistence/src/xdm-persistence.xsl"/>
-  <xsl:import href="xdm-view-common.xsl"/>
-
   <xsl:variable name="xdm:RESET" as="xs:string" select="'&#x1B;[0m'"/>
   <xsl:variable name="xdm:RED" as="xs:string" select="'&#x1B;[0;31m'"/>
   <xsl:variable name="xdm:GREEN" as="xs:string" select="'&#x1B;[0;32m'"/>

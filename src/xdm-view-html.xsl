@@ -13,9 +13,6 @@
        xdm-view-text.xsl, just a different rendering of it.
   -->
 
-  <xsl:import href="../../xdm-persistence/src/xdm-persistence.xsl"/>
-  <xsl:import href="xdm-view-common.xsl"/>
-
   <xsl:variable name="xdm:NUMERIC-TYPES" as="xs:string*" select="(
     'xs:integer', 'xs:decimal', 'xs:double', 'xs:float',
     'xs:byte', 'xs:short', 'xs:int', 'xs:long',
