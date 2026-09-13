@@ -46,6 +46,21 @@
     <xsl:sequence select="$xdm:BRACKET-COLORS[$idx]"/>
   </xsl:function>
 
+  <xsl:function name="xdm:indent" as="xs:string">
+    <xsl:param name="level" as="xs:integer"/>
+    <xsl:sequence select="string-join(for $n in 1 to $level return '  ', '')"/>
+  </xsl:function>
+
+  <!-- A map entry's or array member's value stays on the same line as its
+       key/preceding siblings only if it's a single atomic value (or empty) -
+       anything else (a nested map/array/node, or a multi-item sequence)
+       forces its whole container onto multiple lines, one child per line. -->
+  <xsl:function name="xdm:is-simple-item-seq" as="xs:boolean">
+    <xsl:param name="items" as="element(xdm:item)*"/>
+    <xsl:sequence select="
+      count($items) le 1 and (empty($items) or $items[1]/*[1]/self::xdm:atomic)"/>
+  </xsl:function>
+
   <xsl:function name="xdm:view-text" as="xs:string">
     <xsl:param name="value" as="item()*"/>
     <xsl:sequence select="xdm:view-text($value, false())"/>
@@ -72,6 +87,16 @@
       </xsl:when>
       <xsl:when test="count($items) = 1">
         <xsl:sequence select="xdm:render-payload-text($items[1]/*[1], $useColor, $level)"/>
+      </xsl:when>
+      <xsl:when test="some $i in $items satisfies not($i/*[1]/self::xdm:atomic)">
+        <xsl:variable name="childIndent" as="xs:string" select="xdm:indent($level + 1)"/>
+        <xsl:variable name="closeIndent" as="xs:string" select="xdm:indent($level)"/>
+        <xsl:variable name="rendered" as="xs:string*" select="
+          for $i in $items return xdm:render-payload-text($i/*[1], $useColor, $level + 1)"/>
+        <xsl:sequence select="
+          xdm:colorize('(', $bc, $useColor) || '&#10;' || $childIndent ||
+          string-join($rendered, ',&#10;' || $childIndent) ||
+          '&#10;' || $closeIndent || xdm:colorize(')', $bc, $useColor)"/>
       </xsl:when>
       <xsl:otherwise>
         <xsl:variable name="rendered" as="xs:string*" select="
@@ -114,10 +139,10 @@
                         '=&quot;' || string($payload/@uri) || '&quot;', $xdm:GREEN, $useColor)"/>
       </xsl:when>
       <xsl:when test="$payload/self::xdm:document">
-        <xsl:sequence select="xdm:render-node-text($payload/node(), $useColor)"/>
+        <xsl:sequence select="xdm:render-node-text($payload/node(), $useColor, $level)"/>
       </xsl:when>
       <xsl:otherwise> <!-- a plain copied element node -->
-        <xsl:sequence select="xdm:render-node-text($payload, $useColor)"/>
+        <xsl:sequence select="xdm:render-node-text($payload, $useColor, $level)"/>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:function>
@@ -153,10 +178,28 @@
     <xsl:param name="useColor" as="xs:boolean"/>
     <xsl:param name="level" as="xs:integer"/>
     <xsl:variable name="bc" as="xs:string" select="xdm:bracket-color($level)"/>
-    <xsl:variable name="entries" as="xs:string*" select="
-      for $e in $mapEl/xdm:entry return xdm:render-entry-text($e, $useColor, $level + 1)"/>
-    <xsl:sequence select="
-      xdm:colorize('map{', $bc, $useColor) || string-join($entries, ', ') || xdm:colorize('}', $bc, $useColor)"/>
+    <xsl:variable name="entryEls" as="element(xdm:entry)*" select="$mapEl/xdm:entry"/>
+    <xsl:choose>
+      <xsl:when test="empty($entryEls)">
+        <xsl:sequence select="xdm:colorize('map{', $bc, $useColor) || xdm:colorize('}', $bc, $useColor)"/>
+      </xsl:when>
+      <xsl:when test="some $e in $entryEls satisfies not(xdm:is-simple-item-seq($e/xdm:item))">
+        <xsl:variable name="childIndent" as="xs:string" select="xdm:indent($level + 1)"/>
+        <xsl:variable name="closeIndent" as="xs:string" select="xdm:indent($level)"/>
+        <xsl:variable name="entries" as="xs:string*" select="
+          for $e in $entryEls return xdm:render-entry-text($e, $useColor, $level + 1)"/>
+        <xsl:sequence select="
+          xdm:colorize('map{', $bc, $useColor) || '&#10;' || $childIndent ||
+          string-join($entries, ',&#10;' || $childIndent) ||
+          '&#10;' || $closeIndent || xdm:colorize('}', $bc, $useColor)"/>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:variable name="entries" as="xs:string*" select="
+          for $e in $entryEls return xdm:render-entry-text($e, $useColor, $level + 1)"/>
+        <xsl:sequence select="
+          xdm:colorize('map{', $bc, $useColor) || string-join($entries, ', ') || xdm:colorize('}', $bc, $useColor)"/>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:function>
 
   <xsl:function name="xdm:render-entry-text" as="xs:string">
@@ -176,24 +219,79 @@
     <xsl:param name="useColor" as="xs:boolean"/>
     <xsl:param name="level" as="xs:integer"/>
     <xsl:variable name="bc" as="xs:string" select="xdm:bracket-color($level)"/>
-    <xsl:variable name="members" as="xs:string*" select="
-      for $m in $arrayEl/xdm:member return xdm:render-item-seq-text($m/xdm:item, $useColor, $level + 1)"/>
-    <xsl:sequence select="
-      xdm:colorize('array{', $bc, $useColor) || string-join($members, ', ') || xdm:colorize('}', $bc, $useColor)"/>
+    <xsl:variable name="memberEls" as="element(xdm:member)*" select="$arrayEl/xdm:member"/>
+    <xsl:choose>
+      <xsl:when test="empty($memberEls)">
+        <xsl:sequence select="xdm:colorize('array{', $bc, $useColor) || xdm:colorize('}', $bc, $useColor)"/>
+      </xsl:when>
+      <xsl:when test="some $m in $memberEls satisfies not(xdm:is-simple-item-seq($m/xdm:item))">
+        <xsl:variable name="childIndent" as="xs:string" select="xdm:indent($level + 1)"/>
+        <xsl:variable name="closeIndent" as="xs:string" select="xdm:indent($level)"/>
+        <xsl:variable name="members" as="xs:string*" select="
+          for $m in $memberEls return xdm:render-item-seq-text($m/xdm:item, $useColor, $level + 1)"/>
+        <xsl:sequence select="
+          xdm:colorize('array{', $bc, $useColor) || '&#10;' || $childIndent ||
+          string-join($members, ',&#10;' || $childIndent) ||
+          '&#10;' || $closeIndent || xdm:colorize('}', $bc, $useColor)"/>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:variable name="members" as="xs:string*" select="
+          for $m in $memberEls return xdm:render-item-seq-text($m/xdm:item, $useColor, $level + 1)"/>
+        <xsl:sequence select="
+          xdm:colorize('array{', $bc, $useColor) || string-join($members, ', ') || xdm:colorize('}', $bc, $useColor)"/>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:function>
 
-  <!-- A real (element/document) node has no compact XPath-literal form, so
-       it's shown as its own serialized markup, truncated if long. -->
+  <!-- A real (element/document) node has no compact XPath-literal form. A
+       leaf-like node (no descendant elements) is shown as truncated,
+       single-line markup; one with descendant elements is pretty-printed
+       with conventional XML indentation instead, aligned to the current
+       nesting level - truncating nested markup to a fixed length would
+       just cut it apart awkwardly. -->
   <xsl:function name="xdm:render-node-text" as="xs:string">
     <xsl:param name="node" as="node()*"/>
     <xsl:param name="useColor" as="xs:boolean"/>
-    <xsl:variable name="maxLength" as="xs:integer" select="80"/>
+    <xsl:param name="level" as="xs:integer"/>
     <xsl:variable name="clean" as="node()*" select="xdm:strip-unused-namespaces($node)"/>
-    <xsl:variable name="raw" as="xs:string" select="
-      string-join(for $n in $clean return serialize($n, map{'method':'xml', 'indent': false()}), '')"/>
-    <xsl:variable name="text" as="xs:string" select="
-      if (string-length($raw) gt $maxLength) then substring($raw, 1, $maxLength - 3) || '...' else $raw"/>
-    <xsl:sequence select="xdm:colorize($text, $xdm:BLUE, $useColor)"/>
+    <xsl:choose>
+      <xsl:when test="exists($clean/descendant::*)">
+        <xsl:variable name="indent" as="xs:string" select="xdm:indent($level)"/>
+        <xsl:variable name="raw" as="xs:string" select="
+          string-join(for $n in $clean return serialize($n, map{'method':'xml', 'indent': true()}), '&#10;')"/>
+        <!-- Whether serialize() surrounds a lone element's indented markup
+             with a leading/trailing newline is implementation-defined (the
+             exact whitespace under indent="yes" isn't part of the spec,
+             and does vary between Saxon versions) - so any such leading or
+             trailing newline is stripped explicitly here, rather than
+             assuming a fixed one is (or isn't) present and dropping a
+             token by position, which silently ate the real opening tag on
+             Saxon versions that don't add the leading newline.
+             The (always-added, by us) leading newline is emitted as plain
+             text BEFORE the color escape (rather than joined into the
+             colorized text) - some terminals/log sinks swallow a bare
+             newline that immediately follows a color-start code with
+             nothing in between, which otherwise merges the element's start
+             tag back onto the 'key: ' line. -->
+        <xsl:variable name="withoutLeadingNewline" as="xs:string" select="
+          if (starts-with($raw, '&#10;')) then substring($raw, 2) else $raw"/>
+        <xsl:variable name="trimmed" as="xs:string" select="
+          if (ends-with($withoutLeadingNewline, '&#10;'))
+          then substring($withoutLeadingNewline, 1, string-length($withoutLeadingNewline) - 1)
+          else $withoutLeadingNewline"/>
+        <xsl:variable name="body" as="xs:string" select="
+          string-join(tokenize($trimmed, '&#10;'), '&#10;' || $indent)"/>
+        <xsl:sequence select="'&#10;' || $indent || xdm:colorize($body, $xdm:BLUE, $useColor)"/>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:variable name="maxLength" as="xs:integer" select="80"/>
+        <xsl:variable name="raw" as="xs:string" select="
+          string-join(for $n in $clean return serialize($n, map{'method':'xml', 'indent': false()}), '')"/>
+        <xsl:variable name="text" as="xs:string" select="
+          if (string-length($raw) gt $maxLength) then substring($raw, 1, $maxLength - 3) || '...' else $raw"/>
+        <xsl:sequence select="xdm:colorize($text, $xdm:BLUE, $useColor)"/>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:function>
 
 </xsl:stylesheet>
