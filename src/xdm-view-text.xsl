@@ -42,7 +42,10 @@
   <xsl:function name="xdm:bracket-color" as="xs:string">
     <xsl:param name="level" as="xs:integer"/>
     <xsl:variable name="n" as="xs:integer" select="count($xdm:BRACKET-COLORS)"/>
-    <xsl:variable name="idx" as="xs:integer" select="(($level - 1) mod $n) + 1"/>
+    <!-- level mod n, not (level - 1) mod n: the latter goes negative (and
+         so out of range for indexing $xdm:BRACKET-COLORS) for level 0,
+         which the root value's brackets are now rendered at. -->
+    <xsl:variable name="idx" as="xs:integer" select="($level mod $n) + 1"/>
     <xsl:sequence select="$xdm:BRACKET-COLORS[$idx]"/>
   </xsl:function>
 
@@ -70,7 +73,10 @@
     <xsl:param name="value" as="item()*"/>
     <xsl:param name="useColor" as="xs:boolean"/>
     <xsl:variable name="tree" as="document-node()" select="xdm:serialize($value)"/>
-    <xsl:sequence select="xdm:render-item-seq-text($tree/xdm:sequence/xdm:item, $useColor, 1)"/>
+    <!-- Level 0: nothing precedes the very first character, so the root
+         value's own opening bracket has no indent - matching xdm:indent(0),
+         which is what its closing bracket needs to align with. -->
+    <xsl:sequence select="xdm:render-item-seq-text($tree/xdm:sequence/xdm:item, $useColor, 0)"/>
   </xsl:function>
 
   <!-- Renders a sequence of xdm:item elements the way XPath itself would
