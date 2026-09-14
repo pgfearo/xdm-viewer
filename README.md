@@ -1,10 +1,11 @@
 # xdm-viewer
 
 Renders an XPath 3.1 Data Model value — nodes, maps, arrays, and atomic
-values, in any combination or nesting — as human-readable:
+values, in any combination or nesting — as legible output for a human, in
+either of two forms:
 
-- JSON-like text (`{'a': 1, 'b': (2, 3)}`), optionally ANSI-coloured, 
-- browsable HTML page with collapsible maps/arrays.
+- JSON-like text (`{'a': 1, 'b': (2, 3)}`), optionally ANSI-coloured
+- a browsable HTML page with collapsible maps/arrays
 
 ## Background
 
@@ -35,7 +36,7 @@ github/
 |---|---|
 | `src/xdm-view-text.xsl` | `xdm:view-text($value)`, `xdm:view-text($value, $useColor)` |
 | `src/xdm-view-html.xsl` | `xdm:view-html($value)` |
-| `src/xdm-view-common.xsl` | Shared helper used by both renderers |
+| `src/xdm-view-common.xsl` | Shared helpers used by both renderers |
 | `src/xdm-view.xsl` | Single entry point — imports all three of the above |
 
 Import `xdm-view.xsl` rather than the individual renderer files, for the same
@@ -95,7 +96,9 @@ Prints an ANSI-coloured text view to stdout (via primary output - see
 
 <img src="images/demo-text-color.png" width="507" alt="xdm:view-text($value, true()) rendered in a terminal">
 
-*Color output works for primary output and can be enabled for xsl:message output in Saxon using its Java API.*
+*Color works out of the box via primary output; getting it through
+`xsl:message` instead needs a custom `MessageListener` via Saxon's Java
+API - see below.*
 
 `xdm:view-text($value, true())` produces real ANSI escape codes, but
 XSLT processors like Saxon cannot always process them when the result goes through `xsl:message`: Saxon's
