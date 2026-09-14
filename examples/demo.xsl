@@ -47,13 +47,14 @@
   
   
   <xsl:template name="xsl:initial-template">
-    <!-- xsl:message rather than the primary output: it isn't subject to a
-         task runner's resultPath redirection, and (with the DeltaXML XSLT
-         extension's Saxon wrapper) is emitted without XML-entity-encoding
-         the ANSI escape codes. -->
-         
-    <xsl:variable name="test" as="item()*" select="$value"/>
-    <xsl:message select="xdm:view-text($value, true())"/>
+    <!-- xsl:message rather than the primary output:. No color here - most tools
+         (Saxon's own default MessageListener included) XML-entity-encode
+         xsl:message content, which mangles ANSI escape codes into literal
+         '&#x1b;[...m' text. Color is still available to anyone driving
+         Saxon through its Java API and installing their own MessageListener
+         that writes the message's string value out unescaped - see the
+         README. -->
+    <xsl:message select="xdm:view-text($value)"/>
     
     <xsl:result-document href="{$text-html-uri}" method="html" indent="yes">
       <html>

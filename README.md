@@ -84,8 +84,30 @@ original value:
 java -jar saxon.jar -xsl:examples/demo.xsl -it
 ```
 
-Prints an ANSI-coloured text view to the console and writes
-`examples/out/view-demo.html`.
+Prints a plain-text view via `xsl:message` and writes two HTML files:
+`examples/out/view-demo.html` (the collapsible `xdm:view-html` output) and
+`examples/out/view--text-demo.html` (the same text view as the message,
+in a `<pre><code>`).
+
+## Color output
+
+`xdm:view-text($value, true())` produces real ANSI escape codes, but
+XSLT processors like Saxon cannot always process them when the result goes through `xsl:message`: Saxon's
+default `MessageListener` (and most XSLT tooling built on it) XML-entity-encodes
+message content, turning `ESC[0;31m` into the literal text `&#x1b;[0;31m`.
+This isn't specific to any one tool - it's the default behavior of Saxon's
+own message delivery.
+
+Two ways around it:
+
+- **Primary output** (`xsl:output method="text"`, writing to stdout or a
+  file rather than `xsl:message`) is not affected - it writes the escape
+  codes through untouched with plain Saxon, no extra tooling needed.
+- **Driving Saxon via its Java API**, install your own `MessageListener`/
+  `MessageListener2` on the transformer that writes the message's string
+  value out directly (e.g. `System.err.println(content.getStringValue())`)
+  instead of using Saxon's default one, which is what avoids the
+  entity-encoding.
 
 ## Tests
 
