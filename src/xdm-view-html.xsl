@@ -116,7 +116,11 @@
         <span class="xdm-other" title="{$type}"><xsl:if test="string-length($uri) gt 0">Q{<xsl:value-of select="$uri"/>}</xsl:if><xsl:value-of select="$lexical"/></span>
       </xsl:when>
       <xsl:otherwise>
-        <span class="xdm-other" title="{$type}"><xsl:value-of select="$lexical"/><xsl:text> (</xsl:text><xsl:value-of select="$type"/>)</span>
+        <!-- The value gets the xdm-other color; the '(type)' annotation is
+             left unstyled (default text color) so it reads as a quieter
+             aside, not part of the value itself. Grouped under one outer
+             span since callers expect a single element() per payload. -->
+        <span><span class="xdm-other" title="{$type}"><xsl:value-of select="$lexical"/></span><xsl:text> (</xsl:text><xsl:value-of select="$type"/><xsl:text>)</xsl:text></span>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:function>

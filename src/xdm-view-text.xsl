@@ -174,7 +174,10 @@
           xdm:colorize((if (string-length($uri) gt 0) then 'Q{' || $uri || '}' else '') || $lexical, $xdm:CYAN, $useColor)"/>
       </xsl:when>
       <xsl:otherwise>
-        <xsl:sequence select="xdm:colorize($lexical || ' (' || $type || ')', $xdm:CYAN, $useColor)"/>
+        <!-- The value is colorized; the '(type)' annotation is left in the
+             terminal's default color so it reads as a quieter aside, not
+             part of the value itself. -->
+        <xsl:sequence select="xdm:colorize($lexical, $xdm:CYAN, $useColor) || ' (' || $type || ')'"/>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:function>
