@@ -3,6 +3,7 @@
                 xmlns:xs="http://www.w3.org/2001/XMLSchema"
                 xmlns:xdm="http://deltaxignia.com/ns/xdm-persistence"
                 xmlns:people="http://example.com/people"
+                xmlns:ext="com.deltaxml.xpath.result.print"
                 exclude-result-prefixes="#all"
                 version="3.0">
   
@@ -13,7 +14,7 @@
        java -jar saxon.jar -xsl:demo.xsl -it
   -->
   
-  <xsl:import href="../src/xdm-view.xsl"/>
+	<xsl:import href="../src/xdm-view.xsl"/>
   
   <xsl:param name="html-file" as="xs:string" select="'out/view-demo.html'"/>
   <xsl:param name="html-text-file" as="xs:string" select="'out/view--text-demo.html'"/>
@@ -21,7 +22,10 @@
   <xsl:variable name="html-uri" as="xs:string" select="resolve-uri($html-file, static-base-uri())"/>
   <xsl:variable name="text-html-uri" as="xs:string" select="resolve-uri($html-text-file, static-base-uri())"/>
   
-  <xsl:variable name="profile" as="element()">
+  <xsl:variable name="profile" as="node()*">
+    <xsl:processing-instruction name="type" select="'anything &lt;good&gt;'"/>
+    <xsl:text>text-node here</xsl:text>
+    <p> the <b>quick</b> brown </p>
     <people:person><people:bio>First programmer.</people:bio></people:person>
   </xsl:variable>
   
@@ -29,18 +33,21 @@
     map {
       'name': 'Ada Lovelace',
       'born': xs:date('1815-12-10'),
-      'tags': array { 'mathematician', 'writer' },
+      'tags': [ 'mathematician', 'writer', (1,2,3), (4,5,6), [10,9,[1,2]] ],
       'scores': (7, 9, 10),
       'profile': $profile,
       'active': true(),
       'note': ()
     }"/>
   
+  
   <xsl:template name="xsl:initial-template">
     <!-- xsl:message rather than the primary output: it isn't subject to a
          task runner's resultPath redirection, and (with the DeltaXML XSLT
          extension's Saxon wrapper) is emitted without XML-entity-encoding
          the ANSI escape codes. -->
+         
+    <xsl:variable name="test" as="item()*" select="$value"/>
     <xsl:message select="xdm:view-text($value, true())"/>
     
     <xsl:result-document href="{$text-html-uri}" method="html" indent="yes">
