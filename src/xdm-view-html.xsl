@@ -48,7 +48,7 @@
       <xsl:when test="count($items) = 1">
         <xsl:sequence select="xdm:render-payload-html($items[1]/*[1])"/>
       </xsl:when>
-      <xsl:otherwise>
+      <xsl:when test="xdm:all-atomic($items)">
         <span class="xdm-seq">
           <span class="xdm-bracket">(</span>
           <xsl:for-each select="$items">
@@ -57,6 +57,16 @@
           </xsl:for-each>
           <span class="xdm-bracket">)</span>
         </span>
+      </xsl:when>
+      <xsl:otherwise>
+        <!-- Not all atomic (nodes, attributes, maps, arrays mixed in) -
+             those tend to be too verbose to cram inline, so each item
+             gets its own line instead. -->
+        <ul class="xdm-seq-list">
+          <xsl:for-each select="$items">
+            <li><xsl:sequence select="xdm:render-payload-html(./*[1])"/></li>
+          </xsl:for-each>
+        </ul>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:function>
@@ -129,7 +139,7 @@
     <xsl:param name="mapEl" as="element(xdm:map)"/>
     <xsl:variable name="n" as="xs:integer" select="count($mapEl/xdm:entry)"/>
     <details class="xdm-map" open="open">
-      <summary>{<xsl:value-of select="$n || ' ' || (if ($n = 1) then 'entry' else 'entries')"/>}</summary>
+      <summary>map{<xsl:value-of select="$n || ' ' || (if ($n = 1) then 'entry' else 'entries')"/>}</summary>
       <ul>
         <xsl:for-each select="$mapEl/xdm:entry">
           <xsl:sequence select="xdm:render-entry-html(.)"/>
@@ -154,7 +164,7 @@
     <xsl:param name="arrayEl" as="element(xdm:array)"/>
     <xsl:variable name="n" as="xs:integer" select="count($arrayEl/xdm:member)"/>
     <details class="xdm-array" open="open">
-      <summary>[<xsl:value-of select="$n || ' ' || (if ($n = 1) then 'member' else 'members')"/>]</summary>
+      <summary>array{<xsl:value-of select="$n || ' ' || (if ($n = 1) then 'member' else 'members')"/>}</summary>
       <ul>
         <xsl:for-each select="$arrayEl/xdm:member">
           <li><xsl:sequence select="xdm:render-item-seq-html(./xdm:item)"/></li>
@@ -188,7 +198,9 @@
       '.xdm-other, .xdm-text-node, .xdm-comment, .xdm-pi { color: #1a8a9a; }' ||
       '.xdm-attr, .xdm-ns { color: #1a8a3d; }' ||
       '.xdm-bracket, .xdm-comma { color: #888; }' ||
-      'pre.xdm-node { display: inline-block; margin: 0; padding: 0.4rem 0.6rem; background: #f4f4f4; border-radius: 4px; vertical-align: top; }'
+      'pre.xdm-node { display: inline-block; margin: 0; padding: 0.4rem 0.6rem; background: #f4f4f4; border-radius: 4px; vertical-align: top; }' ||
+      'ul.xdm-seq-list { list-style: none; margin: 0.25rem 0 0.25rem 1rem; padding: 0; border-left: 2px solid #ddd; padding-left: 0.75rem; }' ||
+      'ul.xdm-seq-list > li { margin: 0.15rem 0; }'
     "/>
   </xsl:function>
 

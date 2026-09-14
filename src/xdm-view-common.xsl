@@ -28,4 +28,15 @@
     <xsl:apply-templates select="$node" mode="xdm:strip-ns"/>
   </xsl:function>
 
+  <!-- Whether every item in a sequence (a map entry's or array member's
+       value, or the top-level value) is a plain atomic value. A sequence
+       that's all-atomic is short enough to lay out compactly on one line;
+       one holding even a single node, map or array reads better with each
+       item on its own line - nodes and attributes in particular tend to
+       be too verbose to cram inline. -->
+  <xsl:function name="xdm:all-atomic" as="xs:boolean">
+    <xsl:param name="items" as="element(xdm:item)*"/>
+    <xsl:sequence select="every $i in $items satisfies $i/*[1]/self::xdm:atomic"/>
+  </xsl:function>
+
 </xsl:stylesheet>
