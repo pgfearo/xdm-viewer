@@ -7,9 +7,9 @@
 
   <!--
        (c) DeltaXignia ltd. 2026
-       Renders an XPath 3.1 Data Model value as indented, XPath-like text
-       (map{...}, array{...}, 'string', true()/false(), ...), optionally
-       with ANSI color. Works by walking the xdm: tree that
+       Renders an XPath 3.1 Data Model value as indented, JSON-like text
+       ({...}, [...], 'string', true()/false(), ...), optionally with
+       ANSI color. Works by walking the xdm: tree that
        xdm-persistence's xdm:serialize() produces - the value's shape and
        every atomic value's exact type are already classified there, so
        this only has to render, not re-classify.
@@ -181,7 +181,7 @@
     <xsl:variable name="entryEls" as="element(xdm:entry)*" select="$mapEl/xdm:entry"/>
     <xsl:choose>
       <xsl:when test="empty($entryEls)">
-        <xsl:sequence select="xdm:colorize('map{', $bc, $useColor) || xdm:colorize('}', $bc, $useColor)"/>
+        <xsl:sequence select="xdm:colorize('{', $bc, $useColor) || xdm:colorize('}', $bc, $useColor)"/>
       </xsl:when>
       <xsl:when test="some $e in $entryEls satisfies not(xdm:is-simple-item-seq($e/xdm:item))">
         <xsl:variable name="childIndent" as="xs:string" select="xdm:indent($level + 1)"/>
@@ -189,7 +189,7 @@
         <xsl:variable name="entries" as="xs:string*" select="
           for $e in $entryEls return xdm:render-entry-text($e, $useColor, $level + 1)"/>
         <xsl:sequence select="
-          xdm:colorize('map{', $bc, $useColor) || '&#10;' || $childIndent ||
+          xdm:colorize('{', $bc, $useColor) || '&#10;' || $childIndent ||
           string-join($entries, ',&#10;' || $childIndent) ||
           '&#10;' || $closeIndent || xdm:colorize('}', $bc, $useColor)"/>
       </xsl:when>
@@ -197,7 +197,7 @@
         <xsl:variable name="entries" as="xs:string*" select="
           for $e in $entryEls return xdm:render-entry-text($e, $useColor, $level + 1)"/>
         <xsl:sequence select="
-          xdm:colorize('map{', $bc, $useColor) || string-join($entries, ', ') || xdm:colorize('}', $bc, $useColor)"/>
+          xdm:colorize('{', $bc, $useColor) || string-join($entries, ', ') || xdm:colorize('}', $bc, $useColor)"/>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:function>
@@ -222,7 +222,7 @@
     <xsl:variable name="memberEls" as="element(xdm:member)*" select="$arrayEl/xdm:member"/>
     <xsl:choose>
       <xsl:when test="empty($memberEls)">
-        <xsl:sequence select="xdm:colorize('array{', $bc, $useColor) || xdm:colorize('}', $bc, $useColor)"/>
+        <xsl:sequence select="xdm:colorize('[', $bc, $useColor) || xdm:colorize(']', $bc, $useColor)"/>
       </xsl:when>
       <xsl:when test="some $m in $memberEls satisfies not(xdm:is-simple-item-seq($m/xdm:item))">
         <xsl:variable name="childIndent" as="xs:string" select="xdm:indent($level + 1)"/>
@@ -230,15 +230,15 @@
         <xsl:variable name="members" as="xs:string*" select="
           for $m in $memberEls return xdm:render-item-seq-text($m/xdm:item, $useColor, $level + 1)"/>
         <xsl:sequence select="
-          xdm:colorize('array{', $bc, $useColor) || '&#10;' || $childIndent ||
+          xdm:colorize('[', $bc, $useColor) || '&#10;' || $childIndent ||
           string-join($members, ',&#10;' || $childIndent) ||
-          '&#10;' || $closeIndent || xdm:colorize('}', $bc, $useColor)"/>
+          '&#10;' || $closeIndent || xdm:colorize(']', $bc, $useColor)"/>
       </xsl:when>
       <xsl:otherwise>
         <xsl:variable name="members" as="xs:string*" select="
           for $m in $memberEls return xdm:render-item-seq-text($m/xdm:item, $useColor, $level + 1)"/>
         <xsl:sequence select="
-          xdm:colorize('array{', $bc, $useColor) || string-join($members, ', ') || xdm:colorize('}', $bc, $useColor)"/>
+          xdm:colorize('[', $bc, $useColor) || string-join($members, ', ') || xdm:colorize(']', $bc, $useColor)"/>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:function>

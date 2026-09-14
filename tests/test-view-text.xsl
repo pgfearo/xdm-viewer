@@ -29,11 +29,11 @@
     }"/>
 
   <xsl:variable name="expectedFragments" as="xs:string*" select="(
-    'map{', '}',
+    '{', '}',
     '''name''', '''Ada''',
     '''active''', 'true()',
     '(1, 2, 3)',
-    'array{', '''a''', '''b''',
+    '[', '''a''', '''b''',
     '&lt;p&gt;hello&lt;/p&gt;',
     '()'
   )"/>

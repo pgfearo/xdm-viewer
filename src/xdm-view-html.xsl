@@ -125,7 +125,7 @@
     <xsl:param name="mapEl" as="element(xdm:map)"/>
     <xsl:variable name="n" as="xs:integer" select="count($mapEl/xdm:entry)"/>
     <details class="xdm-map" open="open">
-      <summary>map{<xsl:value-of select="$n || ' ' || (if ($n = 1) then 'entry' else 'entries')"/>}</summary>
+      <summary>{<xsl:value-of select="$n || ' ' || (if ($n = 1) then 'entry' else 'entries')"/>}</summary>
       <ul>
         <xsl:for-each select="$mapEl/xdm:entry">
           <xsl:sequence select="xdm:render-entry-html(.)"/>
@@ -150,7 +150,7 @@
     <xsl:param name="arrayEl" as="element(xdm:array)"/>
     <xsl:variable name="n" as="xs:integer" select="count($arrayEl/xdm:member)"/>
     <details class="xdm-array" open="open">
-      <summary>array{<xsl:value-of select="$n || ' ' || (if ($n = 1) then 'member' else 'members')"/>}</summary>
+      <summary>[<xsl:value-of select="$n || ' ' || (if ($n = 1) then 'member' else 'members')"/>]</summary>
       <ul>
         <xsl:for-each select="$arrayEl/xdm:member">
           <li><xsl:sequence select="xdm:render-item-seq-html(./xdm:item)"/></li>

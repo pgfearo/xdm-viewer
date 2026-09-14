@@ -2,7 +2,7 @@
 
 Renders an XPath 3.1 Data Model value — nodes, maps, arrays, and atomic
 values, in any combination or nesting — as legible output for a human:
-XPath-like text (`map{'a': 1, 'b': (2, 3)}`), optionally ANSI-coloured, or a
+JSON-like text (`{'a': 1, 'b': (2, 3)}`), optionally ANSI-coloured, or a
 browsable HTML page with collapsible maps/arrays.
 
 ## Background
@@ -49,7 +49,7 @@ project.
 <xsl:variable name="value" as="item()*" select="map { 'a': 1, 'b': (2, 3) }"/>
 
 <xsl:sequence select="xdm:view-text($value)"/>
-<!-- map{'a': 1, 'b': (2, 3)} -->
+<!-- {'a': 1, 'b': (2, 3)} -->
 
 <xsl:sequence select="xdm:view-text($value, true())"/>
 <!-- same, with ANSI color codes -->
@@ -64,11 +64,11 @@ Both renderers walk the same tree `xdm:serialize($value)` produces (see
 `xdm-persistence`'s README for its shape) rather than re-classifying the
 original value:
 
-- `xdm:map`/`xdm:entry` render as `map{ 'key': value, ... }` (or nested
+- `xdm:map`/`xdm:entry` render as `{ 'key': value, ... }` (or nested
   `<details>` sections in HTML); an entry's value is rendered using XPath
   sequence syntax when it holds more than one item (`(1, 2, 3)`), or none
   (`()`).
-- `xdm:array`/`xdm:member` render the same way as `array{ ... }`.
+- `xdm:array`/`xdm:member` render the same way as `[ ... ]`.
 - `xdm:atomic` renders using its recorded type: quoted for strings,
   `true()`/`false()` for booleans, plain for numerics, `Q{uri}local` for a
   namespaced `xs:QName`.
@@ -96,7 +96,7 @@ SAXON_JAR=/path/to/saxon-he-12.jar tests/run.sh
 Since rendered output has no natural "correct answer" to `deep-equal`
 against (unlike `xdm-persistence`'s round-trip tests), these check that a
 representative value's rendering contains the expected fragments
-(`map{`, `'name'`, `true()`, ...) rather than an exact string match — map
+(`{`, `'name'`, `true()`, ...) rather than an exact string match — map
 key iteration order isn't guaranteed, so an exact expected string would be
 fragile.
 

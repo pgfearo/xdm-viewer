@@ -29,11 +29,11 @@
     }"/>
 
   <xsl:variable name="expectedFragments" as="xs:string*" select="(
-    'class=&quot;xdm-map&quot;', 'map{6 entries}',
+    'class=&quot;xdm-map&quot;', '{6 entries}',
     'class=&quot;xdm-string&quot;', '''Ada''',
     'class=&quot;xdm-boolean&quot;', 'true()',
     'class=&quot;xdm-number&quot;',
-    'class=&quot;xdm-array&quot;', 'array{2 members}',
+    'class=&quot;xdm-array&quot;', '[2 members]',
     'class=&quot;xdm-node&quot;', 'hello'
   )"/>
 
