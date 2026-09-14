@@ -22,8 +22,13 @@
   <xsl:variable name="html-uri" as="xs:string" select="resolve-uri($html-file, static-base-uri())"/>
   <xsl:variable name="text-html-uri" as="xs:string" select="resolve-uri($html-text-file, static-base-uri())"/>
   
-  <xsl:variable name="profile" as="node()*">
+  <xsl:variable name="anyURI" as="xs:anyURI" select="static-base-uri()"/>
+  
+  <xsl:variable name="profile" as="item()*">
     <xsl:processing-instruction name="type" select="'anything &lt;good&gt;'"/>
+    <xsl:attribute name="class" select="'bold'"/>
+    <xsl:sequence select="node-name(doc('')/*)"/>
+    <xsl:sequence select="$anyURI"/>
     <xsl:text>text-node here</xsl:text>
     <p> the <b>quick</b> brown </p>
     <people:person><people:bio>First programmer.</people:bio></people:person>
