@@ -21,19 +21,19 @@
     let $filename := tokenize(base-uri(), '/')[last()]
     return replace($filename, '\.[^.]+$', '')"/>
   
-  <xsl:variable name="out-file" as="xs:string" select="resolve-uri('out/' || $base-file || '.html', base-uri())"/>
-  
-  
+  <xsl:variable name="out-file" as="xs:string" select="resolve-uri('out/' || $base-file || '-view.html', base-uri())"/>
+
+
   <xsl:template match="/">
-    
-    <xsl:result-document href="{$out-file}-view.html" method="html" indent="yes">
+
+    <xsl:result-document href="{$out-file}" method="html" indent="yes">
       <xsl:sequence select="xdm:persisted-to-html-view(.)"/>
     </xsl:result-document>
-    
+
     <xsl:message>
       View saved to: {$out-file}
     </xsl:message>
-    
+
   </xsl:template>
   
 </xsl:stylesheet>
