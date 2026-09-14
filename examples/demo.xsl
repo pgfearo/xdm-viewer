@@ -56,7 +56,7 @@
          xsl:message needs to drive Saxon via its Java API and install
          their own MessageListener that writes the message's string value
          out unescaped - see the README. -->
-    <xsl:sequence select="xdm:view-text($value, true())"/>
+    <xsl:sequence select="xdm:view-text($value, true()) || '&#10;'"/>
     
     <xsl:result-document href="{$text-html-uri}" method="html" indent="yes">
       <html>
