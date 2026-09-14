@@ -1,0 +1,18 @@
+<xdm:sequence xmlns:xdm="http://deltaxignia.com/ns/xdm-persistence"
+              xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xdm:item>
+        <xdm:map>
+            <xdm:entry key="scores" key-type="xs:string">
+                <xdm:item><xdm:atomic type="xs:integer">7</xdm:atomic></xdm:item>
+                <xdm:item><xdm:atomic type="xs:integer">9</xdm:atomic></xdm:item>
+                <xdm:item><xdm:atomic type="xs:integer">10</xdm:atomic></xdm:item>
+            </xdm:entry>
+            <xdm:entry key="bio" key-type="xs:string">
+                <xdm:item><p>Mathematician.</p></xdm:item>
+            </xdm:entry>
+            <xdm:entry key="name" key-type="xs:string">
+                <xdm:item><xdm:atomic type="xs:string">Ada Lovelace</xdm:atomic></xdm:item>
+            </xdm:entry>
+        </xdm:map>
+    </xdm:item>
+</xdm:sequence>

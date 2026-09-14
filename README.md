@@ -34,8 +34,8 @@ github/
 
 | File | Purpose |
 |---|---|
-| `src/xdm-view-text.xsl` | `xdm:view-text($value)`, `xdm:view-text($value, $useColor)` |
-| `src/xdm-view-html.xsl` | `xdm:view-html($value)` |
+| `src/xdm-view-text.xsl` | `xdm:view-text($value)`, `xdm:view-text($value, $useColor)`, `xdm:persisted-to-text-view($doc)`, `xdm:persisted-to-text-view($doc, $useColor)` |
+| `src/xdm-view-html.xsl` | `xdm:view-html($value)`, `xdm:persisted-to-html-view($doc)` |
 | `src/xdm-view-common.xsl` | Shared helpers used by both renderers |
 | `src/xdm-view.xsl` | Single entry point — imports all three of the above |
 
@@ -59,6 +59,22 @@ project.
 <xsl:sequence select="xdm:view-html($value)"/>
 <!-- a full HTML document-node(), ready for xsl:result-document -->
 ```
+
+Already have a value persisted via `xdm-persistence`'s `xdm:serialize()` (e.g. read
+back with `doc()`)? Render it directly, without needing `xdm:parse()` or
+`xdm-persistence` imported at all:
+
+```xml
+<xsl:sequence select="xdm:persisted-to-text-view(doc('data.xml'))"/>
+<xsl:sequence select="xdm:persisted-to-text-view(doc('data.xml'), true())"/>
+<xsl:sequence select="xdm:persisted-to-html-view(doc('data.xml'))"/>
+```
+
+`xdm:view-text`/`xdm:view-html` are themselves just `xdm:serialize($value)`
+followed by one of these - so parsing a persisted document back into a value
+with `xdm:parse()` first, then calling `xdm:view-text`/`xdm:view-html` on it,
+would work but re-serializes it right back into an equivalent tree for no
+reason.
 
 ## How it works
 

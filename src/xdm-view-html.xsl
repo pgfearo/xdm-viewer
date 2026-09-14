@@ -22,7 +22,15 @@
 
   <xsl:function name="xdm:view-html" as="document-node()">
     <xsl:param name="value" as="item()*"/>
-    <xsl:variable name="tree" as="document-node()" select="xdm:serialize($value)"/>
+    <xsl:sequence select="xdm:persisted-to-html-view(xdm:serialize($value))"/>
+  </xsl:function>
+
+  <!-- For a value already persisted via xdm-persistence's xdm:serialize()
+       (e.g. read back with doc()) - renders the tree directly rather than
+       parsing it into a value and immediately re-serializing it, and
+       doesn't need xdm-persistence's xdm:parse() at all. -->
+  <xsl:function name="xdm:persisted-to-html-view" as="document-node()">
+    <xsl:param name="doc" as="document-node()"/>
     <xsl:document>
       <html>
         <head>
@@ -32,7 +40,7 @@
         </head>
         <body>
           <div class="xdm-root">
-            <xsl:sequence select="xdm:render-item-seq-html($tree/xdm:sequence/xdm:item)"/>
+            <xsl:sequence select="xdm:render-item-seq-html($doc/xdm:sequence/xdm:item)"/>
           </div>
         </body>
       </html>

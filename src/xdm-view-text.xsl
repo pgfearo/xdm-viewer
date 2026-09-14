@@ -72,11 +72,25 @@
   <xsl:function name="xdm:view-text" as="xs:string">
     <xsl:param name="value" as="item()*"/>
     <xsl:param name="useColor" as="xs:boolean"/>
-    <xsl:variable name="tree" as="document-node()" select="xdm:serialize($value)"/>
+    <xsl:sequence select="xdm:persisted-to-text-view(xdm:serialize($value), $useColor)"/>
+  </xsl:function>
+
+  <!-- For a value already persisted via xdm-persistence's xdm:serialize()
+       (e.g. read back with doc()) - renders the tree directly rather than
+       parsing it into a value and immediately re-serializing it, and
+       doesn't need xdm-persistence's xdm:parse() at all. -->
+  <xsl:function name="xdm:persisted-to-text-view" as="xs:string">
+    <xsl:param name="doc" as="document-node()"/>
+    <xsl:sequence select="xdm:persisted-to-text-view($doc, false())"/>
+  </xsl:function>
+
+  <xsl:function name="xdm:persisted-to-text-view" as="xs:string">
+    <xsl:param name="doc" as="document-node()"/>
+    <xsl:param name="useColor" as="xs:boolean"/>
     <!-- Level 0: nothing precedes the very first character, so the root
          value's own opening bracket has no indent - matching xdm:indent(0),
          which is what its closing bracket needs to align with. -->
-    <xsl:sequence select="xdm:render-item-seq-text($tree/xdm:sequence/xdm:item, $useColor, 0)"/>
+    <xsl:sequence select="xdm:render-item-seq-text($doc/xdm:sequence/xdm:item, $useColor, 0)"/>
   </xsl:function>
 
   <!-- Renders a sequence of xdm:item elements the way XPath itself would
