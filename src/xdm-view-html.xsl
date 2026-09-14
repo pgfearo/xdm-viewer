@@ -40,11 +40,26 @@
         </head>
         <body>
           <div class="xdm-root">
-            <xsl:sequence select="xdm:render-item-seq-html($doc/xdm:sequence/xdm:item)"/>
+            <xsl:sequence select="xdm:persisted-to-html-fragment($doc)"/>
           </div>
         </body>
       </html>
     </xsl:document>
+  </xsl:function>
+
+  <!-- The rendered content alone - no <html>/<head>/<body> page shell, no
+       title, no <style>. For embedding in a page with its own styling and
+       title rather than the fixed one xdm:view-html/persisted-to-html-view
+       produce; xdm:stylesheet-text() is still available separately if you
+       want the same CSS this project uses. -->
+  <xsl:function name="xdm:view-html-fragment" as="element()*">
+    <xsl:param name="value" as="item()*"/>
+    <xsl:sequence select="xdm:persisted-to-html-fragment(xdm:serialize($value))"/>
+  </xsl:function>
+
+  <xsl:function name="xdm:persisted-to-html-fragment" as="element()*">
+    <xsl:param name="doc" as="document-node()"/>
+    <xsl:sequence select="xdm:render-item-seq-html($doc/xdm:sequence/xdm:item)"/>
   </xsl:function>
 
   <xsl:function name="xdm:render-item-seq-html" as="element()*">

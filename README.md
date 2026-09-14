@@ -32,18 +32,18 @@ github/
 
 ## Files
 
-| File | Purpose |
+| File | Functions / Purpose |
 |---|---|
-| `src/xdm-view-text.xsl` | `xdm:view-text($value)`, `xdm:view-text($value, $useColor)`, `xdm:persisted-to-text-view($doc)`, `xdm:persisted-to-text-view($doc, $useColor)` |
-| `src/xdm-view-html.xsl` | `xdm:view-html($value)`, `xdm:persisted-to-html-view($doc)` |
+| `src/xdm-view-text.xsl` | `xdm:view-text($value, $useColor?)`<br>`xdm:persisted-to-text-view($doc, $useColor?)` |
+| `src/xdm-view-html.xsl` | `xdm:view-html($value)`<br>`xdm:persisted-to-html-view($doc)`<br>`xdm:view-html-fragment($value)`<br>`xdm:persisted-to-html-fragment($doc)` |
 | `src/xdm-view-common.xsl` | Shared helpers used by both renderers |
 | `src/xdm-view.xsl` | Single entry point — imports all three of the above |
 
-Import `xdm-view.xsl` rather than the individual renderer files, for the same
-reason `xdm-persistence.xsl` is the recommended entry point in the sibling
-project.
+*Import `xdm-view.xsl` rather than the individual renderer files as they have shared xsl import dependencies*
 
 ## Usage
+
+### Without an xdm value instance:
 
 ```xml
 <xsl:import href="src/xdm-view.xsl"/>
@@ -60,9 +60,7 @@ project.
 <!-- a full HTML document-node(), ready for xsl:result-document -->
 ```
 
-Already have a value persisted via `xdm-persistence`'s `xdm:serialize()` (e.g. read
-back with `doc()`)? Render it directly, without needing `xdm:parse()` or
-`xdm-persistence` imported at all:
+### With an xdm value saved previously as xml using `xdm-persistence`'s `xdm:serialize()` function:
 
 ```xml
 <xsl:sequence select="xdm:persisted-to-text-view(doc('data.xml'))"/>
@@ -75,6 +73,24 @@ followed by one of these - so parsing a persisted document back into a value
 with `xdm:parse()` first, then calling `xdm:view-text`/`xdm:view-html` on it,
 would work but re-serializes it right back into an equivalent tree for no
 reason.
+
+Want your own page - your own `<title>`, your own CSS, or the rendered
+value embedded alongside other content - rather than the fixed page
+`xdm:view-html`/`xdm:persisted-to-html-view` produce? Use the `-fragment`
+variants, which return just the rendered content (no `<html>`/`<head>`/
+`<body>`), and build your own shell around it:
+
+```xml
+<xsl:variable name="fragment" as="element()*" select="xdm:view-html-fragment($value)"/>
+
+<html>
+  <head><title>My Own Page</title><style>/* your own CSS */</style></head>
+  <body><xsl:sequence select="$fragment"/></body>
+</html>
+```
+
+`xdm:stylesheet-text()` returns this project's own CSS as a string, if you
+want to reuse it rather than write your own.
 
 ## How it works
 
