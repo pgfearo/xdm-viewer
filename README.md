@@ -1,9 +1,10 @@
 # xdm-viewer
 
 Renders an XPath 3.1 Data Model value — nodes, maps, arrays, and atomic
-values, in any combination or nesting — as legible output for a human:
-JSON-like text (`{'a': 1, 'b': (2, 3)}`), optionally ANSI-coloured, or a
-browsable HTML page with collapsible maps/arrays.
+values, in any combination or nesting — as human-readable:
+
+- JSON-like text (`{'a': 1, 'b': (2, 3)}`), optionally ANSI-coloured, 
+- browsable HTML page with collapsible maps/arrays.
 
 ## Background
 
@@ -84,12 +85,17 @@ original value:
 java -jar saxon.jar -xsl:examples/demo.xsl -it
 ```
 
-Prints a plain-text view via `xsl:message` and writes two HTML files:
+Prints an ANSI-coloured text view to stdout (via primary output - see
+"Color output" below for why) and writes two HTML files:
 `examples/out/view-demo.html` (the collapsible `xdm:view-html` output) and
-`examples/out/view--text-demo.html` (the same text view as the message,
-in a `<pre><code>`).
+`examples/out/view--text-demo.html` (the same text view, uncoloured, in a
+`<pre><code>`).
 
 ## Color output
+
+<img src="images/demo-text-color.png" width="507" alt="xdm:view-text($value, true()) rendered in a terminal">
+
+*Color output works for primary output and can be enabled for xsl:message output in Saxon using its Java API.*
 
 `xdm:view-text($value, true())` produces real ANSI escape codes, but
 XSLT processors like Saxon cannot always process them when the result goes through `xsl:message`: Saxon's
@@ -102,7 +108,22 @@ Two ways around it:
 
 - **Primary output** (`xsl:output method="text"`, writing to stdout or a
   file rather than `xsl:message`) is not affected - it writes the escape
-  codes through untouched with plain Saxon, no extra tooling needed.
+  codes through untouched with plain Saxon, no extra tooling needed:
+
+  ```xml
+  <xsl:output method="text"/>
+
+  <xsl:template name="xsl:initial-template">
+    <xsl:sequence select="xdm:view-text($value, true())"/>
+  </xsl:template>
+  ```
+
+  ```sh
+  java -jar saxon.jar -xsl:demo.xsl -it
+  ```
+
+  No `-o:` needed - when the command line doesn't name an output file,
+  Saxon's CLI writes the primary result tree straight to stdout.
 - **Driving Saxon via its Java API**, install your own `MessageListener`/
   `MessageListener2` on the transformer that writes the message's string
   value out directly (e.g. `System.err.println(content.getStringValue())`)

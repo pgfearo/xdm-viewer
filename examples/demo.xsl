@@ -15,6 +15,7 @@
   -->
   
 	<xsl:import href="../src/xdm-view.xsl"/>
+  <xsl:output  method="text"/>
   
   <xsl:param name="html-file" as="xs:string" select="'out/view-demo.html'"/>
   <xsl:param name="html-text-file" as="xs:string" select="'out/view--text-demo.html'"/>
@@ -22,7 +23,7 @@
   <xsl:variable name="html-uri" as="xs:string" select="resolve-uri($html-file, static-base-uri())"/>
   <xsl:variable name="text-html-uri" as="xs:string" select="resolve-uri($html-text-file, static-base-uri())"/>
   
-  <xsl:variable name="anyURI" as="xs:anyURI" select="static-base-uri()"/>
+  <xsl:variable name="anyURI" as="xs:anyURI" select="xs:anyURI('http://deltaxignia.com/demo')"/>
   
   <xsl:variable name="profile" as="item()*">
     <xsl:processing-instruction name="type" select="'anything &lt;good&gt;'"/>
@@ -47,14 +48,15 @@
   
   
   <xsl:template name="xsl:initial-template">
-    <!-- xsl:message rather than the primary output:. No color here - most tools
-         (Saxon's own default MessageListener included) XML-entity-encode
-         xsl:message content, which mangles ANSI escape codes into literal
-         '&#x1b;[...m' text. Color is still available to anyone driving
-         Saxon through its Java API and installing their own MessageListener
-         that writes the message's string value out unescaped - see the
-         README. -->
-    <xsl:message select="xdm:view-text($value)"/>
+    <!-- Primary output, not xsl:message: most tools (Saxon's own default
+         MessageListener included) XML-entity-encode xsl:message content,
+         which mangles ANSI escape codes into literal '&#x1b;[...m' text.
+         Primary output isn't affected, so this is the one place in the
+         demo that actually shows color. Anyone who does want color through
+         xsl:message needs to drive Saxon via its Java API and install
+         their own MessageListener that writes the message's string value
+         out unescaped - see the README. -->
+    <xsl:sequence select="xdm:view-text($value, true())"/>
     
     <xsl:result-document href="{$text-html-uri}" method="html" indent="yes">
       <html>
