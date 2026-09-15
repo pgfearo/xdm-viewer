@@ -39,4 +39,88 @@
     <xsl:sequence select="every $i in $items satisfies $i/*[1]/self::xdm:atomic"/>
   </xsl:function>
 
+  <!-- The label for one step in a display-friendly location path: the
+       step's own prefix-qualified name as it actually exists in the
+       resolved source document (element/attribute names via name(), not
+       the doc-independent EQName encoding the reference itself is
+       stored as - a resolved node's own name() already is what was
+       originally there, no reformatting needed), or text()/comment()/
+       processing-instruction(target) for the non-element kinds. A
+       disambiguating [N] predicate is added only when another sibling
+       of the same kind exists (same element name; same node kind for
+       text/comment; same target for a processing-instruction) - the
+       common case of an only child of its kind stays as plain as just
+       its name, matching xdm-viewer's usual avoid-noise style. -->
+  <xsl:function name="xdm:step-label" as="xs:string">
+    <xsl:param name="node" as="node()"/>
+    <xsl:param name="label" as="xs:string"/>
+    <xsl:param name="isLike" as="function(node()) as xs:boolean"/>
+    <xsl:variable name="hasOther" as="xs:boolean" select="
+      exists($node/preceding-sibling::node()[$isLike(.)]) or
+      exists($node/following-sibling::node()[$isLike(.)])"/>
+    <xsl:sequence select="
+      if (not($hasOther)) then $label
+      else $label || '[' || (count($node/preceding-sibling::node()[$isLike(.)]) + 1) || ']'"/>
+  </xsl:function>
+
+  <xsl:function name="xdm:step-label-for-node" as="xs:string">
+    <xsl:param name="node" as="node()"/>
+    <xsl:choose>
+      <xsl:when test="$node instance of attribute()">
+        <xsl:sequence select="'@' || name($node)"/>
+      </xsl:when>
+      <xsl:when test="$node instance of namespace-node()">
+        <!-- Namespace nodes are unique by prefix within their scope, so
+             no two on the same element can ever collide - no
+             disambiguating predicate is possible or needed here. -->
+        <xsl:sequence select="
+          'namespace::' || (if (string-length(name($node)) gt 0) then name($node) else '*default*')"/>
+      </xsl:when>
+      <xsl:when test="$node instance of text()">
+        <xsl:sequence select="
+          xdm:step-label($node, 'text()', function($n as node()) as xs:boolean { $n instance of text() })"/>
+      </xsl:when>
+      <xsl:when test="$node instance of comment()">
+        <xsl:sequence select="
+          xdm:step-label($node, 'comment()', function($n as node()) as xs:boolean { $n instance of comment() })"/>
+      </xsl:when>
+      <xsl:when test="$node instance of processing-instruction()">
+        <xsl:variable name="target" as="xs:string" select="name($node)"/>
+        <xsl:sequence select="
+          xdm:step-label($node, 'processing-instruction(' || $target || ')',
+            function($n as node()) as xs:boolean { $n instance of processing-instruction() and name($n) eq $target })"/>
+      </xsl:when>
+      <xsl:otherwise> <!-- element -->
+        <xsl:variable name="nm" as="xs:QName" select="node-name($node)"/>
+        <xsl:sequence select="
+          xdm:step-label($node, name($node),
+            function($n as node()) as xs:boolean { $n instance of element() and node-name($n) eq $nm })"/>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:function>
+
+  <!-- The one-line, uncolored location text shown above a resolved
+       <xdm:node-ref>'s own rendering: '#N' identifies which pool
+       document it resolves against (the Nth distinct document in
+       xdm:documents, in the order they appear there - not the document's
+       own id/URI, which is often too long to show inline), followed by
+       a simplified, non-positional-by-default location within it
+       (xdm:step-label-for-node per step). This doesn't explicitly assert
+       any relationship between references - it just shows the raw
+       addressing, since two references sharing the same text are
+       provably the same node (or, for a shared prefix, share that
+       ancestor), and the reader is left to make that connection. -->
+  <xsl:function name="xdm:render-node-ref-path-text" as="xs:string">
+    <xsl:param name="ref" as="element(xdm:node-ref)"/>
+    <xsl:variable name="poolDoc" as="element(xdm:pool-doc)" select="
+      (root($ref)/xdm:context/xdm:documents/xdm:pool-doc[@id = $ref/@doc])[1]"/>
+    <xsl:variable name="docOrdinal" as="xs:integer" select="count($poolDoc/preceding-sibling::xdm:pool-doc) + 1"/>
+    <xsl:variable name="path" as="node()+" select="xdm:resolve-node-ref-path($ref)"/>
+    <xsl:variable name="location" as="xs:string" select="
+      if ($path[1] instance of document-node())
+      then '(whole document)'
+      else string-join(for $n in $path return xdm:step-label-for-node($n), '/')"/>
+    <xsl:sequence select="'#' || $docOrdinal || ' ' || $location"/>
+  </xsl:function>
+
 </xsl:stylesheet>

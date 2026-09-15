@@ -59,7 +59,26 @@
 
   <xsl:function name="xdm:persisted-to-html-fragment" as="element()*">
     <xsl:param name="doc" as="document-node()"/>
-    <xsl:sequence select="xdm:render-item-seq-html($doc/xdm:sequence/xdm:item)"/>
+    <!-- Everything below xdm:render-item-seq-html is shared between the
+         two persisted formats unchanged - see xdm-view-text.xsl's
+         xdm:persisted-to-text-view for why only the root's own location
+         needs to differ per format. -->
+    <xsl:variable name="items" as="element(xdm:item)*" select="
+      if (xdm:is-refs-format($doc)) then $doc/xdm:context/xdm:sequence/xdm:item else $doc/xdm:sequence/xdm:item"/>
+    <xsl:sequence select="xdm:render-item-seq-html($items)"/>
+  </xsl:function>
+
+  <!-- Value-level entry points for the reference-preserving mode,
+       mirroring xdm:view-html/xdm:view-html-fragment the same way they
+       mirror xdm:serialize. -->
+  <xsl:function name="xdm:view-html-with-refs" as="document-node()">
+    <xsl:param name="value" as="item()*"/>
+    <xsl:sequence select="xdm:persisted-to-html-view(xdm:serialize-with-refs($value))"/>
+  </xsl:function>
+
+  <xsl:function name="xdm:view-html-fragment-with-refs" as="element()*">
+    <xsl:param name="value" as="item()*"/>
+    <xsl:sequence select="xdm:persisted-to-html-fragment(xdm:serialize-with-refs($value))"/>
   </xsl:function>
 
   <xsl:function name="xdm:render-item-seq-html" as="element()*">
@@ -105,6 +124,9 @@
       </xsl:when>
       <xsl:when test="$payload/self::xdm:array">
         <xsl:sequence select="xdm:render-array-html($payload)"/>
+      </xsl:when>
+      <xsl:when test="$payload/self::xdm:node-ref">
+        <xsl:sequence select="xdm:render-node-ref-html($payload)"/>
       </xsl:when>
       <xsl:when test="$payload/self::xdm:text">
         <span class="xdm-text-node">"<xsl:value-of select="string($payload)"/>"</span>
@@ -206,6 +228,24 @@
     <pre class="xdm-node"><xsl:value-of select="$raw"/></pre>
   </xsl:function>
 
+  <!-- The resolved node's own rendering (exactly as xdm:render-node-html
+       would render it inline), with the location line
+       (xdm:render-node-ref-path-text) shown above it in the page's
+       default text color (no .xdm-* color class), so it reads as a
+       quiet annotation rather than part of the value. A block-level
+       wrapper, matching xdm:render-map-html/xdm:render-array-html/
+       xdm:render-node-html's own block-level return types (<details>,
+       <pre>) in this same dispatch - not <span>, which xdm:render-node-html's
+       <pre> shouldn't be nested inside. -->
+  <xsl:function name="xdm:render-node-ref-html" as="element(div)">
+    <xsl:param name="ref" as="element(xdm:node-ref)"/>
+    <xsl:variable name="resolved" as="node()" select="xdm:resolve-node-ref($ref)"/>
+    <div class="xdm-noderef">
+      <div class="xdm-noderef-path"><xsl:value-of select="xdm:render-node-ref-path-text($ref)"/></div>
+      <xsl:sequence select="xdm:render-node-html($resolved)"/>
+    </div>
+  </xsl:function>
+
   <xsl:function name="xdm:stylesheet-text" as="xs:string">
     <xsl:sequence select="
       'body { font-family: ui-monospace, monospace; font-size: 14px; line-height: 1.5; margin: 1.5rem; }' ||
@@ -223,7 +263,8 @@
       '.xdm-bracket, .xdm-comma { color: #888; }' ||
       'pre.xdm-node { display: inline-block; margin: 0; padding: 0.4rem 0.6rem; background: #f4f4f4; border-radius: 4px; vertical-align: top; }' ||
       'ul.xdm-seq-list { list-style: none; margin: 0.25rem 0 0.25rem 1rem; padding: 0; border-left: 2px solid #ddd; padding-left: 0.75rem; }' ||
-      'ul.xdm-seq-list > li { margin: 0.15rem 0; }'
+      'ul.xdm-seq-list > li { margin: 0.15rem 0; }' ||
+      '.xdm-noderef-path { font-size: 0.85em; margin-bottom: 0.15rem; }'
     "/>
   </xsl:function>
 

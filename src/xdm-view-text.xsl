@@ -89,8 +89,30 @@
     <xsl:param name="useColor" as="xs:boolean"/>
     <!-- Level 0: nothing precedes the very first character, so the root
          value's own opening bracket has no indent - matching xdm:indent(0),
-         which is what its closing bracket needs to align with. -->
-    <xsl:sequence select="xdm:render-item-seq-text($doc/xdm:sequence/xdm:item, $useColor, 0)"/>
+         which is what its closing bracket needs to align with.
+         Everything below xdm:render-item-seq-text is shared between the
+         two persisted formats unchanged - the reference-preserving
+         format's xdm:context wraps the same xdm:sequence/xdm:item shape,
+         just one level deeper, and introduces exactly one new payload
+         kind (xdm:node-ref) that the default format never produces, so
+         only the root's own location needs to differ per format. -->
+    <xsl:variable name="items" as="element(xdm:item)*" select="
+      if (xdm:is-refs-format($doc)) then $doc/xdm:context/xdm:sequence/xdm:item else $doc/xdm:sequence/xdm:item"/>
+    <xsl:sequence select="xdm:render-item-seq-text($items, $useColor, 0)"/>
+  </xsl:function>
+
+  <!-- Value-level entry point for the reference-preserving mode, mirroring
+       xdm:view-text/xdm:serialize-with-refs the same way xdm:view-text
+       mirrors xdm:serialize. -->
+  <xsl:function name="xdm:view-text-with-refs" as="xs:string">
+    <xsl:param name="value" as="item()*"/>
+    <xsl:sequence select="xdm:view-text-with-refs($value, false())"/>
+  </xsl:function>
+
+  <xsl:function name="xdm:view-text-with-refs" as="xs:string">
+    <xsl:param name="value" as="item()*"/>
+    <xsl:param name="useColor" as="xs:boolean"/>
+    <xsl:sequence select="xdm:persisted-to-text-view(xdm:serialize-with-refs($value), $useColor)"/>
   </xsl:function>
 
   <!-- Renders a sequence of xdm:item elements the way XPath itself would
@@ -140,6 +162,9 @@
       </xsl:when>
       <xsl:when test="$payload/self::xdm:array">
         <xsl:sequence select="xdm:render-array-text($payload, $useColor, $level)"/>
+      </xsl:when>
+      <xsl:when test="$payload/self::xdm:node-ref">
+        <xsl:sequence select="xdm:render-node-ref-text($payload, $useColor, $level)"/>
       </xsl:when>
       <xsl:when test="$payload/self::xdm:text">
         <xsl:sequence select="xdm:colorize('&quot;' || string($payload) || '&quot;', $xdm:CYAN, $useColor)"/>
@@ -264,6 +289,33 @@
           xdm:colorize('[', $bc, $useColor) || string-join($members, ', ') || xdm:colorize(']', $bc, $useColor)"/>
       </xsl:otherwise>
     </xsl:choose>
+  </xsl:function>
+
+  <!-- The resolved node's own rendering (exactly as xdm:render-node-text
+       would render it inline), with the location line
+       (xdm:render-node-ref-path-text) prepended on its own line above,
+       in the terminal's default color - not colorized like the node
+       body itself, so it reads as a quiet annotation rather than part
+       of the value. Always puts the node's rendering on its own line(s)
+       below the location, even when it would otherwise be short enough
+       to stay inline after a 'key: ' prefix. -->
+  <xsl:function name="xdm:render-node-ref-text" as="xs:string">
+    <xsl:param name="ref" as="element(xdm:node-ref)"/>
+    <xsl:param name="useColor" as="xs:boolean"/>
+    <xsl:param name="level" as="xs:integer"/>
+    <xsl:variable name="resolved" as="node()" select="xdm:resolve-node-ref($ref)"/>
+    <xsl:variable name="pathLine" as="xs:string" select="xdm:render-node-ref-path-text($ref)"/>
+    <xsl:variable name="rendered" as="xs:string" select="xdm:render-node-text($resolved, $useColor, $level)"/>
+    <xsl:variable name="prefix" as="xs:string" select="'&#10;' || xdm:indent($level)"/>
+    <!-- xdm:render-node-text already starts its own output with $prefix
+         when the resolved node has descendant elements (its multi-line
+         branch) - stripped here so the two don't stack into a blank-
+         looking double newline; the single-line (leaf) branch has no
+         such prefix, so nothing is stripped and $prefix supplies the
+         line break the path line needs either way. -->
+    <xsl:variable name="renderedBody" as="xs:string" select="
+      if (starts-with($rendered, $prefix)) then substring($rendered, string-length($prefix) + 1) else $rendered"/>
+    <xsl:sequence select="$pathLine || $prefix || $renderedBody"/>
   </xsl:function>
 
   <!-- A real (element/document) node has no compact XPath-literal form. A
