@@ -14,18 +14,58 @@
        xmlns:xdm/xmlns:xs from its ancestors (that's just how XML namespace
        scoping works), even though it never uses either. Serializing it in
        isolation for display would otherwise carry that noise along, so it
-       is stripped down to only the namespaces its own names actually use. -->
-  <xsl:mode name="xdm:strip-ns" on-no-match="shallow-copy"/>
+       is stripped down to only the namespaces its own names actually use.
 
-  <xsl:template match="*" mode="xdm:strip-ns">
-    <xsl:copy copy-namespaces="no">
-      <xsl:apply-templates select="@*, node()" mode="xdm:strip-ns"/>
-    </xsl:copy>
+       Recursion here is a named template (xsl:call-template), not
+       xsl:apply-templates/a mode - a mode is a global namespace shared
+       across the whole compiled stylesheet, including every module a
+       caller imports this into, so a caller declaring their own
+       mode="#all" template can silently intercept ours if their match
+       pattern happens to structurally fit content we construct
+       internally (confirmed: this caused genuine infinite recursion when
+       a caller's own match="/*" mode="#all" template intercepted the
+       synthetic document node built for a whole-document reference,
+       since that node's root element genuinely does match /*). A named
+       template is looked up by exact QName, never by pattern/priority
+       resolution, so it can't be intercepted this way - the only
+       collision risk left is a caller declaring a template with this
+       exact namespaced name, which they'd have to do deliberately. -->
+  <xsl:template name="xdm:strip-ns-copy">
+    <xsl:param name="node" as="node()"/>
+    <xsl:choose>
+      <xsl:when test="$node instance of document-node()">
+        <xsl:document>
+          <xsl:for-each select="$node/node()">
+            <xsl:call-template name="xdm:strip-ns-copy">
+              <xsl:with-param name="node" select="."/>
+            </xsl:call-template>
+          </xsl:for-each>
+        </xsl:document>
+      </xsl:when>
+      <xsl:when test="$node instance of element()">
+        <xsl:for-each select="$node">
+          <xsl:copy copy-namespaces="no">
+            <xsl:for-each select="@*, node()">
+              <xsl:call-template name="xdm:strip-ns-copy">
+                <xsl:with-param name="node" select="."/>
+              </xsl:call-template>
+            </xsl:for-each>
+          </xsl:copy>
+        </xsl:for-each>
+      </xsl:when>
+      <xsl:otherwise> <!-- attribute, text, comment, processing-instruction, namespace: none of these carry namespace declarations of their own -->
+        <xsl:copy-of select="$node"/>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
 
   <xsl:function name="xdm:strip-unused-namespaces" as="node()*">
     <xsl:param name="node" as="node()*"/>
-    <xsl:apply-templates select="$node" mode="xdm:strip-ns"/>
+    <xsl:for-each select="$node">
+      <xsl:call-template name="xdm:strip-ns-copy">
+        <xsl:with-param name="node" select="."/>
+      </xsl:call-template>
+    </xsl:for-each>
   </xsl:function>
 
   <!-- Whether every item in a sequence (a map entry's or array member's
