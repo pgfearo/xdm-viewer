@@ -115,6 +115,48 @@
     <xsl:sequence select="xdm:persisted-to-text-view(xdm:serialize-with-refs($value), $useColor)"/>
   </xsl:function>
 
+  <!-- A dedicated debug-dump helper for the common pattern of wrapping
+       several named variables in a map purely to label them for one
+       xsl:message call - $labels' keys are read as plain, unquoted
+       labels, not rendered as a real map value in its own right (no
+       {}/quoted-key styling), so the wrapper itself doesn't show up as
+       noise in the output. Every labeled value is serialized together
+       in one xdm:serialize-with-refs call, so identity/pool-document
+       numbering (#1, #2, ...) stays consistent across them exactly as
+       it would for a single ordinary value - e.g. two labels pointing
+       at the same document still show matching #N text.
+
+       Labels are right-padded to a common width so they line up in
+       their own column; each value then starts on the same line as its
+       label, rendered exactly as xdm:view-text-with-refs would render
+       it standalone (own indentation unchanged - only its first line
+       follows the label, any further lines use the value's own normal,
+       level-0-relative indentation rather than being re-aligned under
+       where the value started). -->
+  <xsl:function name="xdm:debug" as="xs:string">
+    <xsl:param name="labels" as="map(xs:string, item()*)"/>
+    <xsl:sequence select="xdm:debug($labels, false())"/>
+  </xsl:function>
+
+  <xsl:function name="xdm:debug" as="xs:string">
+    <xsl:param name="labels" as="map(xs:string, item()*)"/>
+    <xsl:param name="useColor" as="xs:boolean"/>
+    <xsl:variable name="serialized" as="document-node()" select="xdm:serialize-with-refs($labels)"/>
+    <xsl:variable name="entries" as="element(xdm:entry)*" select="$serialized/xdm:context/xdm:sequence/xdm:item/xdm:map/xdm:entry"/>
+    <xsl:variable name="labelWidth" as="xs:integer" select="max((0, for $e in $entries return string-length(string($e/@key))))"/>
+    <xsl:variable name="lines" as="xs:string*" select="
+      for $e in $entries return
+        xdm:colorize(xdm:pad-right(string($e/@key), $labelWidth), $xdm:RED, $useColor) || ': ' ||
+        xdm:render-item-seq-text($e/xdm:item, $useColor, 0)"/>
+    <xsl:sequence select="string-join($lines, '&#10;')"/>
+  </xsl:function>
+
+  <xsl:function name="xdm:pad-right" as="xs:string">
+    <xsl:param name="text" as="xs:string"/>
+    <xsl:param name="width" as="xs:integer"/>
+    <xsl:sequence select="$text || string-join(for $i in 1 to ($width - string-length($text)) return ' ', '')"/>
+  </xsl:function>
+
   <!-- Renders a sequence of xdm:item elements the way XPath itself would
        write that sequence: 0 items -> '()', 1 item -> just that item (no
        parens), 2+ items -> a parenthesized, comma-separated list. -->
