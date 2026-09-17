@@ -132,16 +132,18 @@
        it would for a single ordinary value - e.g. two labels pointing
        at the same document still show matching #N text.
 
-       Labels are right-padded to a common width so they line up in
-       their own column, colored xdm:YELLOW (distinct from xdm:RED, used
-       for real map keys, so a label never reads as though it were one).
-       Each value then starts on the same line as its label, rendered
-       exactly as xdm:view-text-with-refs would render it standalone,
-       except every line after its first is then re-indented (a plain
-       string post-process - tokenize on newline, prepend spaces,
-       rejoin - rather than threading an extra indent through the whole
-       render call chain) so the whole value lines up under where it
-       started, not just its first line. -->
+       Each label's ': ' follows its own text immediately - the padding
+       needed to line every value up in a common column goes after the
+       colon instead, not between the label and the colon - colored
+       xdm:YELLOW (distinct from xdm:RED, used for real map keys, so a
+       label never reads as though it were one). Each value then starts
+       on the same line as its label, rendered exactly as
+       xdm:view-text-with-refs would render it standalone, except every
+       line after its first is then re-indented (a plain string
+       post-process - tokenize on newline, prepend spaces, rejoin -
+       rather than threading an extra indent through the whole render
+       call chain) so the whole value lines up under where it started,
+       not just its first line. -->
   <xsl:function name="xdm:debug" as="xs:string">
     <xsl:param name="labels" as="map(xs:string, item()*)"/>
     <xsl:sequence select="xdm:debug($labels, false())"/>
@@ -153,12 +155,27 @@
     <xsl:variable name="serialized" as="document-node()" select="xdm:serialize-with-refs($labels)"/>
     <xsl:variable name="entries" as="element(xdm:entry)*" select="$serialized/xdm:context/xdm:sequence/xdm:item/xdm:map/xdm:entry"/>
     <xsl:variable name="labelWidth" as="xs:integer" select="max((0, for $e in $entries return string-length(string($e/@key))))"/>
-    <xsl:variable name="continuationPad" as="xs:string" select="xdm:pad-right('', $labelWidth + 2)"/> <!-- + ': ' -->
+    <xsl:variable name="prefixWidth" as="xs:integer" select="$labelWidth + 2"/> <!-- + ': ' -->
+    <xsl:variable name="continuationPad" as="xs:string" select="xdm:pad-right('', $prefixWidth)"/>
     <xsl:variable name="lines" as="xs:string*" select="
       for $e in $entries return
-        xdm:colorize(xdm:pad-right(string($e/@key), $labelWidth), $xdm:YELLOW, $useColor) || ': ' ||
+        xdm:debug-label-prefix(string($e/@key), $labelWidth, $useColor) ||
         xdm:indent-continuation-lines(xdm:render-item-seq-text($e/xdm:item, $useColor, 0), $continuationPad)"/>
     <xsl:sequence select="string-join($lines, '&#10;')"/>
+  </xsl:function>
+
+  <!-- $rawLabel's own ': ' immediately follows its text, then enough
+       trailing spaces to reach $labelWidth + 2 overall - the colorize
+       call wraps only the label text itself, not the padding, so the
+       padding's own width is computed from $rawLabel's plain length
+       (colorizing first would count the embedded ANSI codes as part of
+       the string length and throw the alignment off). -->
+  <xsl:function name="xdm:debug-label-prefix" as="xs:string">
+    <xsl:param name="rawLabel" as="xs:string"/>
+    <xsl:param name="labelWidth" as="xs:integer"/>
+    <xsl:param name="useColor" as="xs:boolean"/>
+    <xsl:variable name="pad" as="xs:string" select="xdm:pad-right('', $labelWidth - string-length($rawLabel))"/>
+    <xsl:sequence select="xdm:colorize($rawLabel, $xdm:YELLOW, $useColor) || ': ' || $pad"/>
   </xsl:function>
 
   <xsl:function name="xdm:pad-right" as="xs:string">
