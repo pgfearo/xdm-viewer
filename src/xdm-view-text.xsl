@@ -158,7 +158,27 @@
        coexist. Given a title is meant to mark practically every
        scattered xsl:message call, not be an occasional extra, it's
        made a required first parameter outright rather than adding a
-       differently-named variant. -->
+       differently-named variant.
+
+       A label written with a leading '_' (e.g. '_total') gets a blank
+       line inserted above it and renders without the underscore -
+       lets related labels be visually grouped within one debug call.
+       The marker has to live on the key itself rather than as a
+       separate sentinel entry, since map keys are unique and grouping
+       may need more than one break. This relies on $labels rendering
+       in the order it was written, which XPath 3.1 maps never
+       guaranteed - XPath/XQuery/XSLT 4.0 changes that (maps are now
+       defined as an ordered sequence of entries; confirmed on Saxon
+       13), but on a 3.1-only processor entries may still come out in
+       an implementation-defined order, in which case a group's blank
+       line can land next to the wrong neighbor. The marker itself
+       still works everywhere (it's just string handling on the key);
+       only the *placement* relative to other labels depends on
+       ordered-map support.
+       A label that is only '_' still has a valid (empty) display
+       label - it isn't rejected as a degenerate case, just renders
+       oddly, matching this project's general "no surprising errors
+       over a label string" stance. -->
   <xsl:function name="xdm:debug" as="xs:string">
     <xsl:param name="title" as="xs:string"/>
     <xsl:param name="labels" as="map(xs:string, item()*)"/>
@@ -172,14 +192,32 @@
     <xsl:variable name="banner" as="xs:string" select="zxd:debug-banner($title)"/>
     <xsl:variable name="serialized" as="document-node()" select="xdm:serialize-with-refs($labels)"/>
     <xsl:variable name="entries" as="element(xdm:entry)*" select="$serialized/xdm:context/xdm:sequence/xdm:item/xdm:map/xdm:entry"/>
-    <xsl:variable name="labelWidth" as="xs:integer" select="max((0, for $e in $entries return string-length(string($e/@key))))"/>
+    <xsl:variable name="labelWidth" as="xs:integer" select="
+      max((0, for $e in $entries return string-length(zxd:debug-display-label(string($e/@key)))))"/>
     <xsl:variable name="prefixWidth" as="xs:integer" select="$labelWidth + 2"/> <!-- + ': ' -->
     <xsl:variable name="continuationPad" as="xs:string" select="zxd:pad-right('', $prefixWidth)"/>
     <xsl:variable name="lines" as="xs:string*" select="
-      for $e in $entries return
-        zxd:debug-label-prefix(string($e/@key), $labelWidth, $useColor) ||
-        zxd:indent-continuation-lines(zxd:render-item-seq-text($e/xdm:item, $useColor, 0), $continuationPad)"/>
+      for $pos in 1 to count($entries) return (
+        (if ($pos gt 1 and zxd:is-group-start(string($entries[$pos]/@key))) then '' else ()),
+        zxd:debug-label-prefix(zxd:debug-display-label(string($entries[$pos]/@key)), $labelWidth, $useColor) ||
+          zxd:indent-continuation-lines(zxd:render-item-seq-text($entries[$pos]/xdm:item, $useColor, 0), $continuationPad)
+      )"/>
     <xsl:sequence select="$banner || '&#10;' || string-join($lines, '&#10;')"/>
+  </xsl:function>
+
+  <!-- A leading '_' on a label requests a blank line above it, to group
+       related labels within one debug call - see xdm:debug's own
+       comment for why the marker lives on the key and what it depends
+       on. Only the first character is checked, so a label with an
+       underscore anywhere else ('total_after') is untouched. -->
+  <xsl:function name="zxd:is-group-start" as="xs:boolean">
+    <xsl:param name="key" as="xs:string"/>
+    <xsl:sequence select="starts-with($key, '_')"/>
+  </xsl:function>
+
+  <xsl:function name="zxd:debug-display-label" as="xs:string">
+    <xsl:param name="key" as="xs:string"/>
+    <xsl:sequence select="if (zxd:is-group-start($key)) then substring($key, 2) else $key"/>
   </xsl:function>
 
   <xsl:variable name="zxd:DEBUG-BANNER-CHAR" as="xs:string" select="'&#x2500;'"/>

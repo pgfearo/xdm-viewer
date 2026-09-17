@@ -139,6 +139,33 @@ total: 42.5
   "Color output" below.
 - Text-only - there's no HTML equivalent, since it's built for the
   `xsl:message`/stdout debugging workflow specifically.
+- A label written with a leading `_` (e.g. `'_total': $total`) gets a blank
+  line above it and renders without the underscore - lets you group related
+  labels within one call:
+
+  ```xml
+  <xsl:sequence select="xdm:debug('loop', map {
+    'i': $i, 'total': $total,
+    '_input': $input, 'parsed': $parsed
+  })"/>
+  ```
+
+  ```
+  ──────────────────────────────── loop ────────────────────────────────
+  i:     3
+  total: 42.5
+
+  input:  'raw text'
+  parsed: true()
+  ```
+
+  This relies on `$labels` rendering in the order it was written - not
+  guaranteed by XPath 3.1 maps, but XPath/XQuery/XSLT 4.0 formally defines
+  maps as an ordered sequence of entries, and Saxon 13 already preserves
+  insertion order accordingly. On an older, XPath-3.1-only processor a
+  group's blank line may land next to the wrong neighbor (map order there
+  is implementation-defined), but nothing breaks - the marker itself is
+  just string handling on the key.
 
 ### `xdm:path` - An XPath location for debugging
 
