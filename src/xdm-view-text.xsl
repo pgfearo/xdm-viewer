@@ -151,14 +151,23 @@
        a real label and silently misbehaving if mistyped, and would
        break $labels' otherwise-uniform "every entry is a plain label"
        contract. It's also why $title can't instead be an optional
-       trailing parameter the way $useColor is: xdm:debug($labels,
-       $useColor) and xdm:debug($title, $labels) would both be 2-arg
-       overloads of the same name, and XSLT/XPath resolves functions by
-       (name, arity) only, never by parameter type - the two can't
-       coexist. Given a title is meant to mark practically every
-       scattered xsl:message call, not be an occasional extra, it's
-       made a required first parameter outright rather than adding a
+       trailing parameter the way $level is: xdm:debug($labels, $level)
+       and xdm:debug($title, $labels) would both be 2-arg overloads of
+       the same name, and XSLT/XPath resolves functions by (name,
+       arity) only, never by parameter type - the two can't coexist.
+       Given a title is meant to mark practically every scattered
+       xsl:message call, not be an occasional extra, it's made a
+       required first parameter outright rather than adding a
        differently-named variant.
+
+       Color is a separate function (xdm:debug-color) rather than a
+       $useColor flag for the same reason $level couldn't also be a
+       flag alongside it: two boolean/optional trailing parameters on
+       one name run out of arity slots to tell them apart by position
+       alone. Splitting color out by name instead - matching
+       xdm:view-text/xdm:view-text-with-refs's existing precedent -
+       leaves $level the only optional trailing parameter either
+       function needs, at position 3.
 
        A label written with a leading '_' (e.g. '_total') gets a blank
        line inserted above it and renders without the underscore -
@@ -182,13 +191,44 @@
   <xsl:function name="xdm:debug" as="xs:string">
     <xsl:param name="title" as="xs:string"/>
     <xsl:param name="labels" as="map(xs:string, item()*)"/>
-    <xsl:sequence select="xdm:debug($title, $labels, false())"/>
+    <xsl:sequence select="zxd:debug-core($title, $labels, false(), 1)"/>
   </xsl:function>
 
+  <!-- $level 1 (the default, via the 2-arg overload above) is
+       unindented - level N gets (N - 1) * 5 leading spaces on every
+       line of the whole block, banner included, so nested
+       xsl:message calls from recursive templates/functions visually
+       shift right together with their recursion depth. Every call also
+       gets a blank line before its banner (added in zxd:debug-core,
+       ahead of the indent step so it's padded consistently with the
+       blank lines a '_'-grouped label inserts) - keeps consecutive
+       debug calls visually separated in the message stream without
+       the caller having to add their own spacing. -->
   <xsl:function name="xdm:debug" as="xs:string">
     <xsl:param name="title" as="xs:string"/>
     <xsl:param name="labels" as="map(xs:string, item()*)"/>
+    <xsl:param name="level" as="xs:integer"/>
+    <xsl:sequence select="zxd:debug-core($title, $labels, false(), $level)"/>
+  </xsl:function>
+
+  <xsl:function name="xdm:debug-color" as="xs:string">
+    <xsl:param name="title" as="xs:string"/>
+    <xsl:param name="labels" as="map(xs:string, item()*)"/>
+    <xsl:sequence select="zxd:debug-core($title, $labels, true(), 1)"/>
+  </xsl:function>
+
+  <xsl:function name="xdm:debug-color" as="xs:string">
+    <xsl:param name="title" as="xs:string"/>
+    <xsl:param name="labels" as="map(xs:string, item()*)"/>
+    <xsl:param name="level" as="xs:integer"/>
+    <xsl:sequence select="zxd:debug-core($title, $labels, true(), $level)"/>
+  </xsl:function>
+
+  <xsl:function name="zxd:debug-core" as="xs:string">
+    <xsl:param name="title" as="xs:string"/>
+    <xsl:param name="labels" as="map(xs:string, item()*)"/>
     <xsl:param name="useColor" as="xs:boolean"/>
+    <xsl:param name="level" as="xs:integer"/>
     <xsl:variable name="banner" as="xs:string" select="zxd:debug-banner($title)"/>
     <xsl:variable name="serialized" as="document-node()" select="xdm:serialize-with-refs($labels)"/>
     <xsl:variable name="entries" as="element(xdm:entry)*" select="$serialized/xdm:context/xdm:sequence/xdm:item/xdm:map/xdm:entry"/>
@@ -202,7 +242,21 @@
         zxd:debug-label-prefix(zxd:debug-display-label(string($entries[$pos]/@key)), $labelWidth, $useColor) ||
           zxd:indent-continuation-lines(zxd:render-item-seq-text($entries[$pos]/xdm:item, $useColor, 0), $continuationPad)
       )"/>
-    <xsl:sequence select="$banner || '&#10;' || string-join($lines, '&#10;')"/>
+    <xsl:variable name="body" as="xs:string" select="'&#10;' || $banner || '&#10;' || string-join($lines, '&#10;')"/>
+    <xsl:variable name="levelPad" as="xs:string" select="zxd:pad-right('', max((0, ($level - 1) * 5)))"/>
+    <xsl:sequence select="zxd:indent-all-lines($body, $levelPad)"/>
+  </xsl:function>
+
+  <!-- Unlike zxd:indent-continuation-lines (which leaves a value's own
+       first line alone, since it already follows a label on the same
+       line), $level's indent applies to every line of the block
+       uniformly - there's no "first line already placed" exception
+       here, the whole thing is shifting as one unit. -->
+  <xsl:function name="zxd:indent-all-lines" as="xs:string">
+    <xsl:param name="text" as="xs:string"/>
+    <xsl:param name="padding" as="xs:string"/>
+    <xsl:sequence select="
+      string-join(for $line in tokenize($text, '&#10;') return $padding || $line, '&#10;')"/>
   </xsl:function>
 
   <!-- A leading '_' on a label requests a blank line above it, to group

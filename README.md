@@ -131,12 +131,24 @@ total: 42.5
   preserved consistently across them exactly as it is for a single ordinary
   value: two labels pointing at the same document still show matching `#N`
   references.
-- Map key order isn't guaranteed, so labels can print in a different order
-  than you wrote them - above, `total`/`items`/`node` came out as
-  `items`/`node`/`total`.
-- `xdm:debug($title, $labels, $useColor?)` takes the same `$useColor` flag as
-  `xdm:view-text`, with the same ANSI-via-`xsl:message` caveat described in
-  "Color output" below.
+- Map key order isn't guaranteed on an XPath-3.1-only processor, so labels
+  can print in a different order than you wrote them - above,
+  `total`/`items`/`node` came out as `items`/`node`/`total`. XPath/XQuery/
+  XSLT 4.0 changes this (maps are now an ordered sequence of entries), and
+  Saxon 13 already preserves insertion order accordingly.
+- Color is a separate function, `xdm:debug-color($title, $labels)`, rather
+  than a `$useColor` flag on `xdm:debug` - with `$level` (below) as the
+  other optional trailing parameter, one name can't host two independently-
+  optional trailing arguments by position alone. Same ANSI-via-`xsl:message`
+  caveat as `xdm:view-text` applies, described in "Color output" below.
+- `xdm:debug($title, $labels, $level)` / `xdm:debug-color($title, $labels,
+  $level)` indent the whole block - banner included - by `($level - 1) * 5`
+  spaces, so nested `xsl:message` calls from recursive templates/functions
+  can visually line up with their recursion depth. `$level` defaults to `1`
+  (no indent) when omitted.
+- Every call is preceded by a blank line, so consecutive debug calls stay
+  visually separated in the message stream without the caller adding their
+  own spacing.
 - Text-only - there's no HTML equivalent, since it's built for the
   `xsl:message`/stdout debugging workflow specifically.
 - A label written with a leading `_` (e.g. `'_total': $total`) gets a blank
