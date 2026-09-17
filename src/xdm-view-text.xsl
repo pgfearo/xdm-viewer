@@ -18,6 +18,12 @@
   <xsl:variable name="xdm:RESET" as="xs:string" select="'&#x1B;[0m'"/>
   <xsl:variable name="xdm:RED" as="xs:string" select="'&#x1B;[0;31m'"/>
   <xsl:variable name="xdm:GREEN" as="xs:string" select="'&#x1B;[0;32m'"/>
+  <!-- Normal intensity, unlike any of $xdm:BRACKET-COLORS below (all
+       bright variants of the same 5 hues) - the one base hue not
+       already claimed as a role color elsewhere, used for xdm:debug's
+       labels specifically so they read as distinct from real map keys
+       (xdm:RED) without clashing with anything else in the palette. -->
+  <xsl:variable name="xdm:YELLOW" as="xs:string" select="'&#x1B;[0;33m'"/>
   <xsl:variable name="xdm:BLUE" as="xs:string" select="'&#x1B;[0;34m'"/>
   <xsl:variable name="xdm:MAGENTA" as="xs:string" select="'&#x1B;[0;35m'"/>
   <xsl:variable name="xdm:CYAN" as="xs:string" select="'&#x1B;[0;36m'"/>
@@ -127,12 +133,15 @@
        at the same document still show matching #N text.
 
        Labels are right-padded to a common width so they line up in
-       their own column; each value then starts on the same line as its
-       label, rendered exactly as xdm:view-text-with-refs would render
-       it standalone (own indentation unchanged - only its first line
-       follows the label, any further lines use the value's own normal,
-       level-0-relative indentation rather than being re-aligned under
-       where the value started). -->
+       their own column, colored xdm:YELLOW (distinct from xdm:RED, used
+       for real map keys, so a label never reads as though it were one).
+       Each value then starts on the same line as its label, rendered
+       exactly as xdm:view-text-with-refs would render it standalone,
+       except every line after its first is then re-indented (a plain
+       string post-process - tokenize on newline, prepend spaces,
+       rejoin - rather than threading an extra indent through the whole
+       render call chain) so the whole value lines up under where it
+       started, not just its first line. -->
   <xsl:function name="xdm:debug" as="xs:string">
     <xsl:param name="labels" as="map(xs:string, item()*)"/>
     <xsl:sequence select="xdm:debug($labels, false())"/>
@@ -144,10 +153,11 @@
     <xsl:variable name="serialized" as="document-node()" select="xdm:serialize-with-refs($labels)"/>
     <xsl:variable name="entries" as="element(xdm:entry)*" select="$serialized/xdm:context/xdm:sequence/xdm:item/xdm:map/xdm:entry"/>
     <xsl:variable name="labelWidth" as="xs:integer" select="max((0, for $e in $entries return string-length(string($e/@key))))"/>
+    <xsl:variable name="continuationPad" as="xs:string" select="xdm:pad-right('', $labelWidth + 2)"/> <!-- + ': ' -->
     <xsl:variable name="lines" as="xs:string*" select="
       for $e in $entries return
-        xdm:colorize(xdm:pad-right(string($e/@key), $labelWidth), $xdm:RED, $useColor) || ': ' ||
-        xdm:render-item-seq-text($e/xdm:item, $useColor, 0)"/>
+        xdm:colorize(xdm:pad-right(string($e/@key), $labelWidth), $xdm:YELLOW, $useColor) || ': ' ||
+        xdm:indent-continuation-lines(xdm:render-item-seq-text($e/xdm:item, $useColor, 0), $continuationPad)"/>
     <xsl:sequence select="string-join($lines, '&#10;')"/>
   </xsl:function>
 
@@ -155,6 +165,18 @@
     <xsl:param name="text" as="xs:string"/>
     <xsl:param name="width" as="xs:integer"/>
     <xsl:sequence select="$text || string-join(for $i in 1 to ($width - string-length($text)) return ' ', '')"/>
+  </xsl:function>
+
+  <!-- Prepends $padding to every line of $text after the first (a
+       multi-line value's own first line already follows its label
+       directly, so only its later lines need the extra indent). -->
+  <xsl:function name="xdm:indent-continuation-lines" as="xs:string">
+    <xsl:param name="text" as="xs:string"/>
+    <xsl:param name="padding" as="xs:string"/>
+    <xsl:variable name="lines" as="xs:string*" select="tokenize($text, '&#10;')"/>
+    <xsl:sequence select="
+      string-join(for $i in 1 to count($lines) return
+        if ($i = 1) then $lines[$i] else $padding || $lines[$i], '&#10;')"/>
   </xsl:function>
 
   <!-- Renders a sequence of xdm:item elements the way XPath itself would
