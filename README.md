@@ -36,7 +36,7 @@ github/
 |---|---|
 | `src/xdm-view-text.xsl` | `xdm:view-text($value, $useColor?)`<br>`xdm:persisted-to-text-view($doc, $useColor?)` |
 | `src/xdm-view-html.xsl` | `xdm:view-html($value)`<br>`xdm:persisted-to-html-view($doc)`<br>`xdm:view-html-fragment($value)`<br>`xdm:persisted-to-html-fragment($doc)` |
-| `src/xdm-view-common.xsl` | Shared helpers used by both renderers |
+| `src/xdm-view-common.xsl` | `xdm:path($node)`<br>plus other helpers shared by both renderers |
 | `src/xdm-view.xsl` | Single entry point — imports all three of the above |
 
 *Import `xdm-view.xsl` rather than the individual renderer files as they have shared xsl import dependencies*
@@ -92,25 +92,68 @@ variants, which return just the rendered content (no `<html>`/`<head>`/
 `xdm:stylesheet-text()` returns this project's own CSS as a string, if you
 want to reuse it rather than write your own.
 
-## How it works
+## XDM print debugging
 
-Both renderers walk the same tree `xdm:serialize($value)` produces (see
-`xdm-persistence`'s README for its shape) rather than re-classifying the
-original value:
+`xdm:view-text` renders a single value with no formatting imposed beyond the
+value itself. `xdm:debug($title, $labels)` is a different, focussed tool: a
+fixed *format* for the specific habit of dumping several named variables to
+one `xsl:message` call at a checkpoint in a stylesheet - not a general
+substitute for `xdm:view-text`, since it always adds a title banner and
+label columns that other callers may not want.
 
-- `xdm:map`/`xdm:entry` render as `{ 'key': value, ... }` (or nested
-  `<details>` sections in HTML); an entry's value is rendered using XPath
-  sequence syntax when it holds more than one item (`(1, 2, 3)`), or none
-  (`()`).
-- `xdm:array`/`xdm:member` render the same way as `[ ... ]`.
-- `xdm:atomic` renders using its recorded type: quoted for strings,
-  `true()`/`false()` for booleans, plain for numerics, `Q{uri}local` for a
-  namespaced `xs:QName`.
-- A real element or document node has no compact literal form, so it's
-  shown as its own (re-)serialized markup — truncated in the text view,
-  in a `<pre>` in the HTML view. Namespaces the node inherited only from
-  the `xdm:` wrapper tree (not from the original document) are stripped
-  first, so they don't clutter the display.
+```xml
+<xsl:variable name="total" as="xs:double" select="42.5"/>
+<xsl:variable name="items" as="xs:integer*" select="(1, 2, 3)"/>
+<xsl:variable name="node" as="element()">
+  <item sku="A1"><name>Widget</name></item>
+</xsl:variable>
+
+<xsl:message select="xdm:debug('after totals loop', map {
+  'total': $total, 
+  'items': $items, 
+  'node':  $node
+})"/>
+```
+
+```
+───────────────────────── after totals loop ──────────────────────────
+items: (1, 2, 3)
+node:  
+       <item sku="A1">
+          <name>Widget</name>
+       </item>
+total: 42.5
+```
+
+- `$labels`' keys are plain, unquoted labels rather than real map data - so the wrapper itself never reads as part of
+  the value.
+- All labeled values are serialized together in one call, so identity is
+  preserved consistently across them exactly as it is for a single ordinary
+  value: two labels pointing at the same document still show matching `#N`
+  references.
+- Map key order isn't guaranteed, so labels can print in a different order
+  than you wrote them - above, `total`/`items`/`node` came out as
+  `items`/`node`/`total`.
+- `xdm:debug($title, $labels, $useColor?)` takes the same `$useColor` flag as
+  `xdm:view-text`, with the same ANSI-via-`xsl:message` caveat described in
+  "Color output" below.
+- Text-only - there's no HTML equivalent, since it's built for the
+  `xsl:message`/stdout debugging workflow specifically.
+
+### `xdm:path` - An XPath location for debugging
+
+For debugging we often need to know the location of a node rather than it's value.
+The `xdm:path` function provides a simplified node location - it uses
+prefixed element names rather than the full namespaces included when using the XPath
+`fn:path` function, the two outputs are compared below:
+
+```xquery
+<xsl:message select="xdm:path($node)">
+/books/book[2]
+
+<xsl:message select="path($node)">
+/Q{com.examples/books}books[1]/Q{com.examples/books}book[2]
+```
 
 ## Example
 

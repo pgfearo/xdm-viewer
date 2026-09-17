@@ -139,6 +139,26 @@
     </xsl:choose>
   </xsl:function>
 
+  <!-- A concise, namespace-noise-free location string for any node -
+       independent of the reference-preserving/document-pool machinery
+       xdm:render-node-ref-path-text needs, since it walks
+       ancestor-or-self:: directly rather than resolving an
+       xdm:node-ref. Built from the same per-step xdm:step-label-for-node
+       labels (name()-based, so no full namespace URIs), just without the
+       '#N' pool-document prefix, which only makes sense once a node has
+       been through the identity-tracking machinery. Handy standalone -
+       e.g. as one of xdm:debug's labeled values - to pin down which node
+       a value came from without dumping the node itself. -->
+  <xsl:function name="xdm:path" as="xs:string">
+    <xsl:param name="node" as="node()"/>
+    <xsl:sequence select="
+      if ($node instance of document-node())
+      then '(whole document)'
+      else string-join(
+        for $n in $node/ancestor-or-self::node()
+        return xdm:step-label-for-node($n), '/')"/>
+  </xsl:function>
+
   <!-- The one-line, uncolored location text shown above a resolved
        <xdm:node-ref>'s own rendering: '#N' identifies which pool
        document it resolves against (the Nth distinct document in
