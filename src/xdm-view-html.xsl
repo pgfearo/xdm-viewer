@@ -2,7 +2,8 @@
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
                 xmlns:xs="http://www.w3.org/2001/XMLSchema"
                 xmlns:xdm="http://deltaxignia.com/ns/xdm-persistence"
-                exclude-result-prefixes="xsl xdm xs"
+                xmlns:zxd="http://deltaxignia.com/ns/xdm-persistence/internal"
+                exclude-result-prefixes="xsl xdm xs zxd"
                 version="3.0">
 
   <!--
@@ -239,7 +240,7 @@
        <pre> shouldn't be nested inside. -->
   <xsl:function name="xdm:render-node-ref-html" as="element(div)">
     <xsl:param name="ref" as="element(xdm:node-ref)"/>
-    <xsl:variable name="resolved" as="node()" select="xdm:resolve-node-ref($ref)"/>
+    <xsl:variable name="resolved" as="node()" select="zxd:resolve-node-ref($ref)"/>
     <div class="xdm-noderef">
       <div class="xdm-noderef-path"><xsl:value-of select="xdm:render-node-ref-path-text($ref)"/></div>
       <xsl:sequence select="xdm:render-node-html($resolved)"/>

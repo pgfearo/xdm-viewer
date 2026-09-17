@@ -2,7 +2,8 @@
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
                 xmlns:xs="http://www.w3.org/2001/XMLSchema"
                 xmlns:xdm="http://deltaxignia.com/ns/xdm-persistence"
-                exclude-result-prefixes="xsl"
+                xmlns:zxd="http://deltaxignia.com/ns/xdm-persistence/internal"
+                exclude-result-prefixes="xsl zxd"
                 version="3.0">
 
   <!--
@@ -175,7 +176,7 @@
     <xsl:variable name="poolDoc" as="element(xdm:pool-doc)" select="
       (root($ref)/xdm:context/xdm:documents/xdm:pool-doc[@id = $ref/@doc])[1]"/>
     <xsl:variable name="docOrdinal" as="xs:integer" select="count($poolDoc/preceding-sibling::xdm:pool-doc) + 1"/>
-    <xsl:variable name="path" as="node()+" select="xdm:resolve-node-ref-path($ref)"/>
+    <xsl:variable name="path" as="node()+" select="zxd:resolve-node-ref-path($ref)"/>
     <xsl:variable name="location" as="xs:string" select="
       if ($path[1] instance of document-node())
       then '(whole document)'

@@ -2,7 +2,8 @@
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
                 xmlns:xs="http://www.w3.org/2001/XMLSchema"
                 xmlns:xdm="http://deltaxignia.com/ns/xdm-persistence"
-                exclude-result-prefixes="xsl"
+                xmlns:zxd="http://deltaxignia.com/ns/xdm-persistence/internal"
+                exclude-result-prefixes="xsl zxd"
                 version="3.0">
 
   <!--
@@ -425,7 +426,7 @@
     <xsl:param name="ref" as="element(xdm:node-ref)"/>
     <xsl:param name="useColor" as="xs:boolean"/>
     <xsl:param name="level" as="xs:integer"/>
-    <xsl:variable name="resolved" as="node()" select="xdm:resolve-node-ref($ref)"/>
+    <xsl:variable name="resolved" as="node()" select="zxd:resolve-node-ref($ref)"/>
     <xsl:variable name="pathLine" as="xs:string" select="xdm:render-node-ref-path-text($ref)"/>
     <xsl:variable name="rendered" as="xs:string" select="xdm:render-node-text($resolved, $useColor, $level)"/>
     <xsl:variable name="prefix" as="xs:string" select="'&#10;' || xdm:indent($level)"/>
