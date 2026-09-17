@@ -14,7 +14,7 @@
        xdm-view-text.xsl, just a different rendering of it.
   -->
 
-  <xsl:variable name="xdm:NUMERIC-TYPES" as="xs:string*" select="(
+  <xsl:variable name="zxd:NUMERIC-TYPES" as="xs:string*" select="(
     'xs:integer', 'xs:decimal', 'xs:double', 'xs:float',
     'xs:byte', 'xs:short', 'xs:int', 'xs:long',
     'xs:nonNegativeInteger', 'xs:nonPositiveInteger', 'xs:positiveInteger', 'xs:negativeInteger',
@@ -60,13 +60,13 @@
 
   <xsl:function name="xdm:persisted-to-html-fragment" as="element()*">
     <xsl:param name="doc" as="document-node()"/>
-    <!-- Everything below xdm:render-item-seq-html is shared between the
+    <!-- Everything below zxd:render-item-seq-html is shared between the
          two persisted formats unchanged - see xdm-view-text.xsl's
          xdm:persisted-to-text-view for why only the root's own location
          needs to differ per format. -->
     <xsl:variable name="items" as="element(xdm:item)*" select="
       if (xdm:is-refs-format($doc)) then $doc/xdm:context/xdm:sequence/xdm:item else $doc/xdm:sequence/xdm:item"/>
-    <xsl:sequence select="xdm:render-item-seq-html($items)"/>
+    <xsl:sequence select="zxd:render-item-seq-html($items)"/>
   </xsl:function>
 
   <!-- Value-level entry points for the reference-preserving mode,
@@ -82,21 +82,21 @@
     <xsl:sequence select="xdm:persisted-to-html-fragment(xdm:serialize-with-refs($value))"/>
   </xsl:function>
 
-  <xsl:function name="xdm:render-item-seq-html" as="element()*">
+  <xsl:function name="zxd:render-item-seq-html" as="element()*">
     <xsl:param name="items" as="element(xdm:item)*"/>
     <xsl:choose>
       <xsl:when test="count($items) = 0">
         <span class="xdm-bracket">()</span>
       </xsl:when>
       <xsl:when test="count($items) = 1">
-        <xsl:sequence select="xdm:render-payload-html($items[1]/*[1])"/>
+        <xsl:sequence select="zxd:render-payload-html($items[1]/*[1])"/>
       </xsl:when>
-      <xsl:when test="xdm:all-atomic($items)">
+      <xsl:when test="zxd:all-atomic($items)">
         <span class="xdm-seq">
           <span class="xdm-bracket">(</span>
           <xsl:for-each select="$items">
             <xsl:if test="position() gt 1"><span class="xdm-comma">, </span></xsl:if>
-            <xsl:sequence select="xdm:render-payload-html(./*[1])"/>
+            <xsl:sequence select="zxd:render-payload-html(./*[1])"/>
           </xsl:for-each>
           <span class="xdm-bracket">)</span>
         </span>
@@ -107,27 +107,27 @@
              gets its own line instead. -->
         <ul class="xdm-seq-list">
           <xsl:for-each select="$items">
-            <li><xsl:sequence select="xdm:render-payload-html(./*[1])"/></li>
+            <li><xsl:sequence select="zxd:render-payload-html(./*[1])"/></li>
           </xsl:for-each>
         </ul>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:function>
 
-  <xsl:function name="xdm:render-payload-html" as="element()">
+  <xsl:function name="zxd:render-payload-html" as="element()">
     <xsl:param name="payload" as="element()"/>
     <xsl:choose>
       <xsl:when test="$payload/self::xdm:atomic">
-        <xsl:sequence select="xdm:render-atomic-html($payload)"/>
+        <xsl:sequence select="zxd:render-atomic-html($payload)"/>
       </xsl:when>
       <xsl:when test="$payload/self::xdm:map">
-        <xsl:sequence select="xdm:render-map-html($payload)"/>
+        <xsl:sequence select="zxd:render-map-html($payload)"/>
       </xsl:when>
       <xsl:when test="$payload/self::xdm:array">
-        <xsl:sequence select="xdm:render-array-html($payload)"/>
+        <xsl:sequence select="zxd:render-array-html($payload)"/>
       </xsl:when>
       <xsl:when test="$payload/self::xdm:node-ref">
-        <xsl:sequence select="xdm:render-node-ref-html($payload)"/>
+        <xsl:sequence select="zxd:render-node-ref-html($payload)"/>
       </xsl:when>
       <xsl:when test="$payload/self::xdm:text">
         <span class="xdm-text-node">"<xsl:value-of select="string($payload)"/>"</span>
@@ -145,15 +145,15 @@
         <span class="xdm-ns">xmlns<xsl:if test="string-length($payload/@prefix) gt 0">:<xsl:value-of select="string($payload/@prefix)"/></xsl:if>="<xsl:value-of select="string($payload/@uri)"/>"</span>
       </xsl:when>
       <xsl:when test="$payload/self::xdm:document">
-        <xsl:sequence select="xdm:render-node-html($payload/node())"/>
+        <xsl:sequence select="zxd:render-node-html($payload/node())"/>
       </xsl:when>
       <xsl:otherwise> <!-- a plain copied element node -->
-        <xsl:sequence select="xdm:render-node-html($payload)"/>
+        <xsl:sequence select="zxd:render-node-html($payload)"/>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:function>
 
-  <xsl:function name="xdm:render-atomic-html" as="element(span)">
+  <xsl:function name="zxd:render-atomic-html" as="element(span)">
     <xsl:param name="el" as="element(xdm:atomic)"/>
     <xsl:variable name="type" as="xs:string" select="$el/@type"/>
     <xsl:variable name="lexical" as="xs:string" select="string($el)"/>
@@ -164,7 +164,7 @@
       <xsl:when test="$type eq 'xs:boolean'">
         <span class="xdm-boolean" title="{$type}"><xsl:value-of select="$lexical"/>()</span>
       </xsl:when>
-      <xsl:when test="$type = $xdm:NUMERIC-TYPES">
+      <xsl:when test="$type = $zxd:NUMERIC-TYPES">
         <span class="xdm-number" title="{$type}"><xsl:value-of select="$lexical"/></span>
       </xsl:when>
       <xsl:when test="$type eq 'xs:QName'">
@@ -181,20 +181,20 @@
     </xsl:choose>
   </xsl:function>
 
-  <xsl:function name="xdm:render-map-html" as="element(details)">
+  <xsl:function name="zxd:render-map-html" as="element(details)">
     <xsl:param name="mapEl" as="element(xdm:map)"/>
     <xsl:variable name="n" as="xs:integer" select="count($mapEl/xdm:entry)"/>
     <details class="xdm-map" open="open">
       <summary>map{<xsl:value-of select="$n || ' ' || (if ($n = 1) then 'entry' else 'entries')"/>}</summary>
       <ul>
         <xsl:for-each select="$mapEl/xdm:entry">
-          <xsl:sequence select="xdm:render-entry-html(.)"/>
+          <xsl:sequence select="zxd:render-entry-html(.)"/>
         </xsl:for-each>
       </ul>
     </details>
   </xsl:function>
 
-  <xsl:function name="xdm:render-entry-html" as="element(li)">
+  <xsl:function name="zxd:render-entry-html" as="element(li)">
     <xsl:param name="entry" as="element(xdm:entry)"/>
     <xsl:variable name="keyType" as="xs:string" select="$entry/@key-type"/>
     <xsl:variable name="keyText" as="xs:string" select="
@@ -202,18 +202,18 @@
     <li>
       <span class="xdm-key" title="{$keyType}"><xsl:value-of select="$keyText"/></span>
       <xsl:text>: </xsl:text>
-      <xsl:sequence select="xdm:render-item-seq-html($entry/xdm:item)"/>
+      <xsl:sequence select="zxd:render-item-seq-html($entry/xdm:item)"/>
     </li>
   </xsl:function>
 
-  <xsl:function name="xdm:render-array-html" as="element(details)">
+  <xsl:function name="zxd:render-array-html" as="element(details)">
     <xsl:param name="arrayEl" as="element(xdm:array)"/>
     <xsl:variable name="n" as="xs:integer" select="count($arrayEl/xdm:member)"/>
     <details class="xdm-array" open="open">
       <summary>array{<xsl:value-of select="$n || ' ' || (if ($n = 1) then 'member' else 'members')"/>}</summary>
       <ul>
         <xsl:for-each select="$arrayEl/xdm:member">
-          <li><xsl:sequence select="xdm:render-item-seq-html(./xdm:item)"/></li>
+          <li><xsl:sequence select="zxd:render-item-seq-html(./xdm:item)"/></li>
         </xsl:for-each>
       </ul>
     </details>
@@ -221,29 +221,29 @@
 
   <!-- A real element/document node has no compact HTML-native form, so its
        own markup is shown, syntax-escaped, inside a <pre>. -->
-  <xsl:function name="xdm:render-node-html" as="element(pre)">
+  <xsl:function name="zxd:render-node-html" as="element(pre)">
     <xsl:param name="node" as="node()*"/>
-    <xsl:variable name="clean" as="node()*" select="xdm:strip-unused-namespaces($node)"/>
+    <xsl:variable name="clean" as="node()*" select="zxd:strip-unused-namespaces($node)"/>
     <xsl:variable name="raw" as="xs:string" select="
       string-join(for $n in $clean return serialize($n, map{'method':'xml', 'indent': true()}), '')"/>
     <pre class="xdm-node"><xsl:value-of select="$raw"/></pre>
   </xsl:function>
 
-  <!-- The resolved node's own rendering (exactly as xdm:render-node-html
+  <!-- The resolved node's own rendering (exactly as zxd:render-node-html
        would render it inline), with the location line
-       (xdm:render-node-ref-path-text) shown above it in the page's
+       (zxd:render-node-ref-path-text) shown above it in the page's
        default text color (no .xdm-* color class), so it reads as a
        quiet annotation rather than part of the value. A block-level
-       wrapper, matching xdm:render-map-html/xdm:render-array-html/
-       xdm:render-node-html's own block-level return types (<details>,
-       <pre>) in this same dispatch - not <span>, which xdm:render-node-html's
+       wrapper, matching zxd:render-map-html/zxd:render-array-html/
+       zxd:render-node-html's own block-level return types (<details>,
+       <pre>) in this same dispatch - not <span>, which zxd:render-node-html's
        <pre> shouldn't be nested inside. -->
-  <xsl:function name="xdm:render-node-ref-html" as="element(div)">
+  <xsl:function name="zxd:render-node-ref-html" as="element(div)">
     <xsl:param name="ref" as="element(xdm:node-ref)"/>
     <xsl:variable name="resolved" as="node()" select="zxd:resolve-node-ref($ref)"/>
     <div class="xdm-noderef">
-      <div class="xdm-noderef-path"><xsl:value-of select="xdm:render-node-ref-path-text($ref)"/></div>
-      <xsl:sequence select="xdm:render-node-html($resolved)"/>
+      <div class="xdm-noderef-path"><xsl:value-of select="zxd:render-node-ref-path-text($ref)"/></div>
+      <xsl:sequence select="zxd:render-node-html($resolved)"/>
     </div>
   </xsl:function>
 
