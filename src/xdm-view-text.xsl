@@ -143,15 +143,32 @@
        post-process - tokenize on newline, prepend spaces, rejoin -
        rather than threading an extra indent through the whole render
        call chain) so the whole value lines up under where it started,
-       not just its first line. -->
+       not just its first line.
+
+       $title is a required leading parameter, not folded into $labels
+       as a reserved key - a "magic" key name would risk colliding with
+       a real label and silently misbehaving if mistyped, and would
+       break $labels' otherwise-uniform "every entry is a plain label"
+       contract. It's also why $title can't instead be an optional
+       trailing parameter the way $useColor is: xdm:debug($labels,
+       $useColor) and xdm:debug($title, $labels) would both be 2-arg
+       overloads of the same name, and XSLT/XPath resolves functions by
+       (name, arity) only, never by parameter type - the two can't
+       coexist. Given a title is meant to mark practically every
+       scattered xsl:message call, not be an occasional extra, it's
+       made a required first parameter outright rather than adding a
+       differently-named variant. -->
   <xsl:function name="xdm:debug" as="xs:string">
+    <xsl:param name="title" as="xs:string"/>
     <xsl:param name="labels" as="map(xs:string, item()*)"/>
-    <xsl:sequence select="xdm:debug($labels, false())"/>
+    <xsl:sequence select="xdm:debug($title, $labels, false())"/>
   </xsl:function>
 
   <xsl:function name="xdm:debug" as="xs:string">
+    <xsl:param name="title" as="xs:string"/>
     <xsl:param name="labels" as="map(xs:string, item()*)"/>
     <xsl:param name="useColor" as="xs:boolean"/>
+    <xsl:variable name="banner" as="xs:string" select="xdm:debug-banner($title)"/>
     <xsl:variable name="serialized" as="document-node()" select="xdm:serialize-with-refs($labels)"/>
     <xsl:variable name="entries" as="element(xdm:entry)*" select="$serialized/xdm:context/xdm:sequence/xdm:item/xdm:map/xdm:entry"/>
     <xsl:variable name="labelWidth" as="xs:integer" select="max((0, for $e in $entries return string-length(string($e/@key))))"/>
@@ -161,7 +178,31 @@
       for $e in $entries return
         xdm:debug-label-prefix(string($e/@key), $labelWidth, $useColor) ||
         xdm:indent-continuation-lines(xdm:render-item-seq-text($e/xdm:item, $useColor, 0), $continuationPad)"/>
-    <xsl:sequence select="string-join($lines, '&#10;')"/>
+    <xsl:sequence select="$banner || '&#10;' || string-join($lines, '&#10;')"/>
+  </xsl:function>
+
+  <xsl:variable name="xdm:DEBUG-BANNER-CHAR" as="xs:string" select="'&#x2500;'"/>
+  <xsl:variable name="xdm:DEBUG-BANNER-WIDTH" as="xs:integer" select="70"/>
+
+  <!-- A horizontal rule with $title centered in it, marking the start
+       of one xsl:debug call clearly when scrolling past many scattered
+       ones. A title too long to leave any room for the rule (rare) is
+       shown in full with no rule at all, rather than truncated - a
+       debug title should never be the thing that gets cut off. -->
+  <xsl:function name="xdm:debug-banner" as="xs:string">
+    <xsl:param name="title" as="xs:string"/>
+    <xsl:variable name="titleText" as="xs:string" select="' ' || $title || ' '"/>
+    <xsl:variable name="fillTotal" as="xs:integer" select="max((0, $xdm:DEBUG-BANNER-WIDTH - string-length($titleText)))"/>
+    <xsl:variable name="fillLeft" as="xs:integer" select="$fillTotal idiv 2"/>
+    <xsl:variable name="fillRight" as="xs:integer" select="$fillTotal - $fillLeft"/>
+    <xsl:sequence select="
+      xdm:repeat-char($xdm:DEBUG-BANNER-CHAR, $fillLeft) || $titleText || xdm:repeat-char($xdm:DEBUG-BANNER-CHAR, $fillRight)"/>
+  </xsl:function>
+
+  <xsl:function name="xdm:repeat-char" as="xs:string">
+    <xsl:param name="ch" as="xs:string"/>
+    <xsl:param name="n" as="xs:integer"/>
+    <xsl:sequence select="string-join(for $i in 1 to $n return $ch, '')"/>
   </xsl:function>
 
   <!-- $rawLabel's own ': ' immediately follows its text, then enough
