@@ -46,6 +46,23 @@
 
   <xsl:variable name="prunedDoc" as="document-node()" select="zxd:husk-node($rawDoc)"/>
 
+  <!-- zxd:preserves-space / zxd:normalize-for-display -->
+
+  <xsl:variable name="messy" as="element()">
+    <messy>line one
+      line two   with   spaces</messy>
+  </xsl:variable>
+
+  <xsl:variable name="preserved" as="element()">
+    <pre xml:space="preserve">line one
+line two</pre>
+  </xsl:variable>
+
+  <xsl:variable name="overridden" as="element()">
+    <outer xml:space="preserve"><inner xml:space="default">line one
+line two</inner></outer>
+  </xsl:variable>
+
   <xsl:variable name="fortyXs" as="xs:string" select="string-join(for $i in 1 to 40 return 'x', '')"/>
   <xsl:variable name="fortyOneXs" as="xs:string" select="$fortyXs || 'x'"/>
 
@@ -74,6 +91,13 @@
     'husk-node: long child text is truncated, not double-marked',
     'husk-node: content-only child with no text gets the marker alone',
     'husk-node: document-node() recurses into its root element',
+    'preserves-space: false with no xml:space in scope',
+    'preserves-space: true under xml:space=preserve',
+    'preserves-space: nearest wins - an inner xml:space=default overrides an outer preserve',
+    'normalize-for-display: collapses line breaks and runs of spaces to one each, and trims',
+    'normalize-for-display: left verbatim under xml:space=preserve',
+    'husk-node end-to-end: a messy text node is normalized in the pruned output',
+    'husk-node end-to-end: a preserve-marked text node keeps its line breaks in the pruned output',
     'debug: title appears in the banner',
     'debug: an atomic label renders as label colon value',
     'debug: a string label is quoted',
@@ -107,6 +131,13 @@
       and not(contains($prunedBook/blurb/text(), '&#x2026;&#x2026;')),
     $prunedBook/*[local-name() eq 'empty-with-child']/text() eq '&#x2026;',
     $prunedDoc/*/@zxd:path eq xdm:path($rawDoc/*),
+    not(zxd:preserves-space($messy/text())),
+    zxd:preserves-space($preserved/text()),
+    not(zxd:preserves-space($overridden/inner/text())),
+    zxd:normalize-for-display($messy/text()) eq 'line one line two with spaces',
+    zxd:normalize-for-display($preserved/text()) eq ('line one' || '&#10;' || 'line two'),
+    zxd:husk-node($messy)/text() eq 'line one line two with spaces',
+    zxd:husk-node($preserved)/text() eq ('line one' || '&#10;' || 'line two'),
     contains($plainResult, 'my title'),
     contains($plainResult, 'a: 1'),
     contains($plainResult, '''text'''),

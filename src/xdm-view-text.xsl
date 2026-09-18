@@ -299,13 +299,49 @@
       else $text"/>
   </xsl:function>
 
+  <!-- Whether $node's nearest ancestor-or-self xml:space setting (if
+       any) is 'preserve' - the standard XML convention for opting a
+       subtree out of whitespace normalization, the same one
+       xsl:strip-space/xsl:preserve-space honor. The *nearest* setting
+       wins, same as everywhere else xml:space applies: an inner
+       xml:space="default" turns normalization back on even under an
+       outer "preserve", and vice versa. -->
+  <xsl:function name="zxd:preserves-space" as="xs:boolean">
+    <xsl:param name="node" as="node()"/>
+    <!-- General comparison (=), not eq: with no xml:space attribute
+         anywhere in the ancestor chain, the left side is an empty
+         sequence, and eq (a value comparison, cardinality exactly one)
+         would raise a type error there instead of just meaning "no,
+         it doesn't preserve" - = correctly evaluates an empty
+         sequence as false. -->
+    <xsl:sequence select="$node/ancestor-or-self::*[@xml:space][1]/@xml:space = 'preserve'"/>
+  </xsl:function>
+
+  <!-- The text a pruned node shows for $textNode: collapsed to single
+       spaces and trimmed (fn:normalize-space) - a raw text node often
+       carries line breaks and indentation from the source document,
+       which would otherwise break xdm:debug's one-line-per-label
+       layout - unless zxd:preserves-space says the nearest xml:space
+       setting asks to keep it verbatim. Always run before
+       zxd:truncate-text, on whichever text ends up being shown, so a
+       text that's only long *before* collapsing (or only long after,
+       if it's mostly non-whitespace already) is measured accurately
+       rather than judged on its raw, pre-normalization length. -->
+  <xsl:function name="zxd:normalize-for-display" as="xs:string">
+    <xsl:param name="textNode" as="text()"/>
+    <xsl:sequence select="
+      if (zxd:preserves-space($textNode)) then string($textNode) else normalize-space($textNode)"/>
+  </xsl:function>
+
   <!-- Bounds the display cost of a node value to O(its own attributes +
        direct children + a little text), regardless of how deep or
        large the real subtree is - the element keeps its own
        attributes, its own immediate text-node children (each
+       whitespace-normalized via zxd:normalize-for-display, then
        truncated via zxd:truncate-text), and its direct child elements
        with their own attributes and *their* first immediate text-node
-       child (also truncated) - nothing past that; a document node
+       child (normalized and truncated the same way) - nothing past
+       that; a document node
        recurses into its child element the same way. Location is
        computed via xdm:path() on the *original* node, before the
        shallow copy loses its ancestor context, and travels along as a
@@ -337,10 +373,12 @@
                   <xsl:copy copy-namespaces="no">
                     <xsl:sequence select="@*"/>
                     <xsl:variable name="firstText" as="text()?" select="text()[1]"/>
+                    <xsl:variable name="firstTextNormalized" as="xs:string?" select="
+                      if (exists($firstText)) then zxd:normalize-for-display($firstText) else ()"/>
                     <xsl:variable name="firstTextTruncated" as="xs:boolean" select="
-                      exists($firstText) and string-length(string($firstText)) gt $zxd:PRUNE-TEXT-MAX-LENGTH"/>
-                    <xsl:if test="exists($firstText)">
-                      <xsl:value-of select="zxd:truncate-text(string($firstText), $zxd:PRUNE-TEXT-MAX-LENGTH)"/>
+                      exists($firstTextNormalized) and string-length($firstTextNormalized) gt $zxd:PRUNE-TEXT-MAX-LENGTH"/>
+                    <xsl:if test="exists($firstTextNormalized)">
+                      <xsl:value-of select="zxd:truncate-text($firstTextNormalized, $zxd:PRUNE-TEXT-MAX-LENGTH)"/>
                     </xsl:if>
                     <!-- Marks that this child had more than what got kept -
                          its own child elements, or more than one text node -
@@ -356,7 +394,7 @@
                   </xsl:copy>
                 </xsl:when>
                 <xsl:when test=". instance of text()">
-                  <xsl:value-of select="zxd:truncate-text(string(.), $zxd:PRUNE-TEXT-MAX-LENGTH)"/>
+                  <xsl:value-of select="zxd:truncate-text(zxd:normalize-for-display(.), $zxd:PRUNE-TEXT-MAX-LENGTH)"/>
                 </xsl:when>
               </xsl:choose>
             </xsl:for-each>

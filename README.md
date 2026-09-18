@@ -135,14 +135,18 @@ node:  item
   and is *pruned* before rendering: it keeps its own attributes and
   immediate text, and its direct child elements with their own attributes
   and *their* first immediate text - but nothing deeper than that (no
-  grandchild elements). Any kept text longer than 40 characters is cut
-  there with a single `…` (that's why `description`'s text above ends
-  mid-word); a child element that had more than what got kept - its own
-  child elements, or more than one text node - gets that same `…`
-  appended as a marker, so it never reads as though the kept text were
-  the whole original content (skipped when the kept text was already cut
-  by length, to avoid a confusing `…` right after a `…`). This keeps
-  `xdm:debug` cheap and its output bounded even when
+  grandchild elements). Any kept text is whitespace-normalized first
+  (line breaks and runs of spaces collapsed to one each, then trimmed) -
+  a raw text node's own indentation/line breaks would otherwise break the
+  one-line-per-label layout - unless the nearest `xml:space` setting in
+  scope says `preserve`, in which case it's kept verbatim. Whichever text
+  results is then cut at 40 characters with a single `…` (that's why
+  `description`'s text above ends mid-word); a child element that had
+  more than what got kept - its own child elements, or more than one text
+  node - gets that same `…` appended as a marker, so it never reads as
+  though the kept text were the whole original content (skipped when the
+  kept text was already cut by length, to avoid a confusing `…` right
+  after a `…`). This keeps `xdm:debug` cheap and its output bounded even when
   called on every iteration of a loop over a large document - it never
   copies more than a node's own immediate shape and a little text, unlike
   a full recursive render. Two labels pointing at the same node each
