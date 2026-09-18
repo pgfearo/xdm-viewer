@@ -14,7 +14,7 @@ an older debug-only pretty-printer for XPath results. Rather than
 reimplementing its value-classification logic a second time, this project
 builds directly on [xdm-persistence](https://github.com/pgfearo/xdm-persistence):
 it walks the already-classified `xdm:` tree that `xdm-persistence`'s
-`xdm:serialize()` produces (exact atomic types, map/array structure, node
+`xdm:to-document()` produces (exact atomic types, map/array structure, node
 kinds all already resolved) and just renders it, in two different ways.
 
 Implemented with [Claude](https://claude.com/claude-code).
@@ -60,7 +60,7 @@ github/
 <!-- a full HTML document-node(), ready for xsl:result-document -->
 ```
 
-### With an xdm value saved previously as xml using `xdm-persistence`'s `xdm:serialize()` function:
+### With an xdm value saved previously as xml using `xdm-persistence`'s `xdm:to-document()` function:
 
 ```xml
 <xsl:sequence select="xdm:persisted-to-text-view(doc('data.xml'))"/>
@@ -68,9 +68,9 @@ github/
 <xsl:sequence select="xdm:persisted-to-html-view(doc('data.xml'))"/>
 ```
 
-`xdm:view-text`/`xdm:view-html` are themselves just `xdm:serialize($value)`
+`xdm:view-text`/`xdm:view-html` are themselves just `xdm:to-document($value)`
 followed by one of these - so parsing a persisted document back into a value
-with `xdm:parse()` first, then calling `xdm:view-text`/`xdm:view-html` on it,
+with `xdm:from-document()` first, then calling `xdm:view-text`/`xdm:view-html` on it,
 would work but re-serializes it right back into an equivalent tree for no
 reason.
 

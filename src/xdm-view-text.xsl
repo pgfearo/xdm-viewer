@@ -13,7 +13,7 @@
        Renders an XPath 3.1 Data Model value as indented, JSON-like text
        ({...}, [...], 'string', true()/false(), ...), optionally with
        ANSI color. Works by walking the xdm: tree that
-       xdm-persistence's xdm:serialize() produces - the value's shape and
+       xdm-persistence's xdm:to-document() produces - the value's shape and
        every atomic value's exact type are already classified there, so
        this only has to render, not re-classify.
   -->
@@ -81,13 +81,13 @@
   <xsl:function name="xdm:view-text" as="xs:string">
     <xsl:param name="value" as="item()*"/>
     <xsl:param name="useColor" as="xs:boolean"/>
-    <xsl:sequence select="xdm:persisted-to-text-view(xdm:serialize($value), $useColor)"/>
+    <xsl:sequence select="xdm:persisted-to-text-view(xdm:to-document($value), $useColor)"/>
   </xsl:function>
 
-  <!-- For a value already persisted via xdm-persistence's xdm:serialize()
+  <!-- For a value already persisted via xdm-persistence's xdm:to-document()
        (e.g. read back with doc()) - renders the tree directly rather than
        parsing it into a value and immediately re-serializing it, and
-       doesn't need xdm-persistence's xdm:parse() at all. -->
+       doesn't need xdm-persistence's xdm:from-document() at all. -->
   <xsl:function name="xdm:persisted-to-text-view" as="xs:string">
     <xsl:param name="doc" as="document-node()"/>
     <xsl:sequence select="xdm:persisted-to-text-view($doc, false())"/>
@@ -111,8 +111,8 @@
   </xsl:function>
 
   <!-- Value-level entry point for the reference-preserving mode, mirroring
-       xdm:view-text/xdm:serialize-with-refs the same way xdm:view-text
-       mirrors xdm:serialize. -->
+       xdm:view-text/xdm:to-document-with-refs the same way xdm:view-text
+       mirrors xdm:to-document. -->
   <xsl:function name="xdm:view-text-with-refs" as="xs:string">
     <xsl:param name="value" as="item()*"/>
     <xsl:sequence select="xdm:view-text-with-refs($value, false())"/>
@@ -121,7 +121,7 @@
   <xsl:function name="xdm:view-text-with-refs" as="xs:string">
     <xsl:param name="value" as="item()*"/>
     <xsl:param name="useColor" as="xs:boolean"/>
-    <xsl:sequence select="xdm:persisted-to-text-view(xdm:serialize-with-refs($value), $useColor)"/>
+    <xsl:sequence select="xdm:persisted-to-text-view(xdm:to-document-with-refs($value), $useColor)"/>
   </xsl:function>
 
   <!-- A dedicated debug-dump helper for the common pattern of wrapping
@@ -131,8 +131,8 @@
        {}/quoted-key styling), so the wrapper itself doesn't show up as
        noise in the output.
 
-       Deliberately built on plain xdm:serialize(), not
-       xdm:serialize-with-refs() - the latter has to copy the *whole*
+       Deliberately built on plain xdm:to-document(), not
+       xdm:to-document-with-refs() - the latter has to copy the *whole*
        document behind any referenced node, to support later
        re-parsing debug output will never do. That's an unacceptable
        cost for something that might run on every iteration of a hot
@@ -244,7 +244,7 @@
     <xsl:param name="useColor" as="xs:boolean"/>
     <xsl:param name="level" as="xs:integer"/>
     <xsl:variable name="banner" as="xs:string" select="zxd:debug-banner($title)"/>
-    <xsl:variable name="serialized" as="document-node()" select="xdm:serialize(zxd:husk-value($labels))"/>
+    <xsl:variable name="serialized" as="document-node()" select="xdm:to-document(zxd:husk-value($labels))"/>
     <xsl:variable name="entries" as="element(xdm:entry)*" select="$serialized/xdm:sequence/xdm:item/xdm:map/xdm:entry"/>
     <xsl:variable name="labelWidth" as="xs:integer" select="
       max((0, for $e in $entries return string-length(zxd:debug-display-label(string($e/@key)))))"/>
@@ -264,7 +264,7 @@
   <!-- Deep-walks $value (through maps, arrays, and sequences) and
        replaces every element()/document-node() item with a husked,
        path-annotated copy via zxd:husk-node. Used by zxd:debug-core
-       before handing $labels to plain xdm:serialize(), so the tree
+       before handing $labels to plain xdm:to-document(), so the tree
        serialize/render ever see is already bounded in size - no limit
        needs threading through the renderer itself. Every other item
        kind (atomics; attribute, text, comment, pi, namespace nodes)

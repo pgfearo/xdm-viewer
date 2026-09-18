@@ -23,13 +23,13 @@
 
   <xsl:function name="xdm:view-html" as="document-node()">
     <xsl:param name="value" as="item()*"/>
-    <xsl:sequence select="xdm:persisted-to-html-view(xdm:serialize($value))"/>
+    <xsl:sequence select="xdm:persisted-to-html-view(xdm:to-document($value))"/>
   </xsl:function>
 
-  <!-- For a value already persisted via xdm-persistence's xdm:serialize()
+  <!-- For a value already persisted via xdm-persistence's xdm:to-document()
        (e.g. read back with doc()) - renders the tree directly rather than
        parsing it into a value and immediately re-serializing it, and
-       doesn't need xdm-persistence's xdm:parse() at all. -->
+       doesn't need xdm-persistence's xdm:from-document() at all. -->
   <xsl:function name="xdm:persisted-to-html-view" as="document-node()">
     <xsl:param name="doc" as="document-node()"/>
     <xsl:document>
@@ -55,7 +55,7 @@
        want the same CSS this project uses. -->
   <xsl:function name="xdm:view-html-fragment" as="element()*">
     <xsl:param name="value" as="item()*"/>
-    <xsl:sequence select="xdm:persisted-to-html-fragment(xdm:serialize($value))"/>
+    <xsl:sequence select="xdm:persisted-to-html-fragment(xdm:to-document($value))"/>
   </xsl:function>
 
   <xsl:function name="xdm:persisted-to-html-fragment" as="element()*">
@@ -71,15 +71,15 @@
 
   <!-- Value-level entry points for the reference-preserving mode,
        mirroring xdm:view-html/xdm:view-html-fragment the same way they
-       mirror xdm:serialize. -->
+       mirror xdm:to-document. -->
   <xsl:function name="xdm:view-html-with-refs" as="document-node()">
     <xsl:param name="value" as="item()*"/>
-    <xsl:sequence select="xdm:persisted-to-html-view(xdm:serialize-with-refs($value))"/>
+    <xsl:sequence select="xdm:persisted-to-html-view(xdm:to-document-with-refs($value))"/>
   </xsl:function>
 
   <xsl:function name="xdm:view-html-fragment-with-refs" as="element()*">
     <xsl:param name="value" as="item()*"/>
-    <xsl:sequence select="xdm:persisted-to-html-fragment(xdm:serialize-with-refs($value))"/>
+    <xsl:sequence select="xdm:persisted-to-html-fragment(xdm:to-document-with-refs($value))"/>
   </xsl:function>
 
   <xsl:function name="zxd:render-item-seq-html" as="element()*">

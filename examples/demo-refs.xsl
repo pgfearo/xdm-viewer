@@ -9,8 +9,8 @@
   <!--
        Renders a representative reference-preserving-mode value both ways:
        ANSI-coloured text to the console, and a browsable HTML page to
-       disk - the companion to demo.xsl, using xdm:serialize-with-refs
-       instead of xdm:serialize.
+       disk - the companion to demo.xsl, using xdm:to-document-with-refs
+       instead of xdm:to-document.
 
        $value is built to exercise every distinct thing the viewer shows
        for this mode: household/household-again reference the exact same
