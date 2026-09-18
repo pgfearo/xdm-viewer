@@ -129,77 +129,14 @@ node:  item
        </item>
 ```
 
-- `$labels`' keys are plain, unquoted labels rather than real map data - so the wrapper itself never reads as part of
-  the value.
-- A node value shows its location - `xdm:path()` (above) - on its own line,
-  whatever kind of node it is: an element, attribute, text, comment,
-  processing-instruction, or namespace node all get one. Elements carry
-  theirs as an extra attribute on the (already pruned) copy; the other
-  kinds can't do that, so they're wrapped instead in a two-entry map keyed
-  by reserved, namespace-qualified `xs:QName`s - not plain strings, so an
-  ordinary map you actually pass to `xdm:debug` could never be mistaken
-  for one by accident - which the renderer recognizes and unwraps back
-  into a location line plus the value's own normal rendering. An element
-  value is additionally *pruned* before rendering: it keeps its own
-  attributes and immediate text, and its direct child elements with their own attributes
-  and *their* first immediate text - but nothing deeper than that (no
-  grandchild elements). Any kept text is whitespace-normalized first
-  (line breaks and runs of spaces collapsed to one each, then trimmed) -
-  a raw text node's own indentation/line breaks would otherwise break the
-  one-line-per-label layout - unless the nearest `xml:space` setting in
-  scope says `preserve`, in which case it's kept verbatim. Whichever text
-  results is then cut at `xdm:DEBUG-PRUNE-TEXT-MAX-LENGTH` characters (40
-  by default, hence `description`'s text above ending mid-word) with a
-  single `…` - override it in your own stylesheet if 40 doesn't suit you:
-
-  ```xml
-  <xsl:import href="src/xdm-view.xsl"/>
-
-  <!-- your own stylesheet importing xdm-view.xsl already has higher
-       import precedence, so this simply wins over the library's default -->
-  <xsl:param name="xdm:DEBUG-PRUNE-TEXT-MAX-LENGTH" as="xs:integer" select="80"/>
-  ```
-
-  A child element that had more than what got kept - its own child
-  elements, or more than one text node - gets that same `…` appended as a
-  marker, so it never reads as
-  though the kept text were the whole original content (skipped when the
-  kept text was already cut by length, to avoid a confusing `…` right
-  after a `…`). A label whose value is a bare `text()` node rather than an
-  element (e.g. `$el/text()` passed directly) gets the same
-  normalize-then-truncate treatment on its own. This keeps `xdm:debug` cheap and its output bounded even when
-  called on every iteration of a loop over a large document - it never
-  copies more than a node's own immediate shape and a little text, unlike
-  a full recursive render. Two labels pointing at the same node each
-  independently show the same path text, which is enough to spot that
-  they're the same node without needing any actual identity-tracking
-  machinery (`xdm:view-text-with-refs`, which isn't built for hot-loop
-  use, still has real `#N` cross-references for when that's what you
-  want).
-- Map key order isn't guaranteed on an XPath-3.1-only processor, so labels
-  can print in a different order than you wrote them there, even though
-  the example above (running on ordered-map semantics) shows
-  `total`/`items`/`node` exactly as written. XPath/XQuery/XSLT 4.0 changes
-  this (maps are now an ordered sequence of entries), and Saxon 13 already
-  preserves insertion order accordingly.
-- Color is a separate function, `xdm:debug-color($title, $labels)`, rather
-  than a `$useColor` flag on `xdm:debug` - with `$level` (below) as the
-  other optional trailing parameter, one name can't host two independently-
-  optional trailing arguments by position alone. Same ANSI-via-`xsl:message`
-  caveat as `xdm:view-text` applies, described in "Color output" below.
-- `xdm:debug($title, $labels, $level)` / `xdm:debug-color($title, $labels,
-  $level)` indent the whole block - banner included - by `($level - 1) * 5`
-  spaces, so nested `xsl:message` calls from recursive templates/functions
-  can visually line up with their recursion depth. `$level` defaults to `1`
-  (no indent) when omitted.
-- Every call is preceded by a blank line, so consecutive debug calls stay
-  visually separated in the message stream without the caller adding their
-  own spacing.
-- Text-only - there's no HTML equivalent, since it's built for the
-  `xsl:message`/stdout debugging workflow specifically.
-- A label written with a leading `_` (e.g. `'_total': $total`) gets a blank
-  line above it and renders without the underscore - lets you group related
-  labels within one call:
+- `$labels`' keys are plain labels, not real map data.
+- A node value - any kind, not just elements - shows its `xdm:path()` location on its own line above its rendering.
+- An element value is *pruned*: only its own attributes/text and its direct children's tags, attributes, and first text survive - nothing deeper.
+- Kept text is whitespace-normalized (unless `xml:space="preserve"` applies) and cut at `xdm:DEBUG-PRUNE-TEXT-MAX-LENGTH` characters (40 by default, overridable via `xsl:param` in your own stylesheet), with a `…` marking anything dropped.
+- Map key order isn't guaranteed pre-XPath-4.0 (Saxon 13+ preserves the order you wrote), so labels can print out of order on older processors.
+- Color is a separate function, `xdm:debug-color($title, $labels)`, not a flag on `xdm:debug`.
+- `$level` (default `1`) indents the whole block by `(level - 1) * 5` spaces, to line up with recursion or call-depth.
+- A label written with a leading `_` (e.g. `'_total'`) gets a blank line above it and drops the underscore, letting you group related labels:
 
   ```xml
   <xsl:sequence select="xdm:debug('loop', map {
@@ -216,14 +153,6 @@ node:  item
   input:  'raw text'
   parsed: true()
   ```
-
-  This relies on `$labels` rendering in the order it was written - not
-  guaranteed by XPath 3.1 maps, but XPath/XQuery/XSLT 4.0 formally defines
-  maps as an ordered sequence of entries, and Saxon 13 already preserves
-  insertion order accordingly. On an older, XPath-3.1-only processor a
-  group's blank line may land next to the wrong neighbor (map order there
-  is implementation-defined), but nothing breaks - the marker itself is
-  just string handling on the key.
 
 ### `xdm:path` - An XPath location for debugging
 
