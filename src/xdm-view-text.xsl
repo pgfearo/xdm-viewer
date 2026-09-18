@@ -263,31 +263,56 @@
 
   <!-- Deep-walks $value (through maps, arrays, and sequences) and
        replaces every element()/document-node() item with a husked,
-       path-annotated copy via zxd:husk-node, and every bare text()
-       item (e.g. a label whose value is $el/text() directly, not
-       embedded in an element) with a whitespace-normalized, truncated
-       copy via zxd:husk-text - same zxd:normalize-for-display/
-       zxd:truncate-text treatment a text node gets when it's kept as
-       part of a husked element, just applied when the text node is
-       itself the top-level item instead. Used by zxd:debug-core
-       before handing $labels to plain xdm:to-document(), so the tree
-       serialize/render ever see is already bounded in size - no limit
-       needs threading through the renderer itself. Every other item
-       kind (atomics; attribute, comment, pi, namespace nodes) passes
-       through unchanged - they're not the deep-tree/long-text
-       verbosity risk this exists for, and (except atomics) have
-       nowhere to hang a location marker anyway. -->
+       path-annotated copy via zxd:husk-node; every bare text() item
+       (e.g. a label whose value is $el/text() directly, not embedded
+       in an element) with a whitespace-normalized, truncated copy via
+       zxd:husk-text, wrapped with its location via
+       zxd:with-node-path; and every attribute()/comment()/
+       processing-instruction()/namespace-node() item with itself,
+       unchanged, but likewise wrapped with its location - these kinds
+       have nowhere on themselves to hang a location marker the way an
+       element can carry an extra attribute, hence the wrapper. Used by
+       zxd:debug-core before handing $labels to plain xdm:to-document(),
+       so the tree serialize/render ever see is already bounded in size
+       - no limit needs threading through the renderer itself. -->
   <xsl:function name="zxd:husk-value" as="item()*">
     <xsl:param name="value" as="item()*"/>
     <xsl:sequence select="
       for $item in $value return
         if ($item instance of element() or $item instance of document-node()) then zxd:husk-node($item)
-        else if ($item instance of text()) then zxd:husk-text($item)
+        else if ($item instance of text()) then zxd:with-node-path($item, zxd:husk-text($item))
+        else if ($item instance of attribute() or $item instance of comment()
+                 or $item instance of processing-instruction() or $item instance of namespace-node())
+             then zxd:with-node-path($item, $item)
         else if ($item instance of map(*)) then
           map:merge(for $k in map:keys($item) return map:entry($k, zxd:husk-value($item($k))))
         else if ($item instance of array(*)) then
           array:for-each($item, function($x as item()*) as item()* { zxd:husk-value($x) })
         else $item"/>
+  </xsl:function>
+
+  <!-- Reserved, namespace-qualified map keys used only to carry a
+       node's location alongside a value that can't carry a zxd:path
+       attribute the way a husked element does (see zxd:with-node-path)
+       - QNames, not plain strings, specifically so an ordinary user
+       map could never collide with this shape by accident: it would
+       need a key that is this exact namespace URI *and* local name,
+       not just a string that happens to match. -->
+  <xsl:variable name="zxd:NODE-PATH-KEY" as="xs:QName" select="QName('http://deltaxignia.com/ns/xdm-persistence/internal', 'path')"/>
+  <xsl:variable name="zxd:NODE-VALUE-KEY" as="xs:QName" select="QName('http://deltaxignia.com/ns/xdm-persistence/internal', 'value')"/>
+
+  <!-- Wraps $displayValue (what should actually render) together with
+       $originalNode's location (computed on the *original* node, since
+       $displayValue may already be a freshly-built replacement with no
+       ancestor context of its own - see zxd:husk-text). Renders as a
+       plain xdm:map once serialized, unless zxd:render-payload-text
+       recognizes the two reserved keys and unwraps it specially -
+       zxd:is-node-path-wrapper/zxd:render-path-wrapped-text do that
+       recognition and rendering respectively. -->
+  <xsl:function name="zxd:with-node-path" as="map(*)">
+    <xsl:param name="originalNode" as="node()"/>
+    <xsl:param name="displayValue" as="item()*"/>
+    <xsl:sequence select="map{ $zxd:NODE-PATH-KEY: xdm:path($originalNode), $zxd:NODE-VALUE-KEY: $displayValue }"/>
   </xsl:function>
 
   <!-- The truncated, whitespace-normalized text a bare text() value
@@ -300,10 +325,25 @@
        use. -->
   <xsl:function name="zxd:husk-text" as="text()">
     <xsl:param name="node" as="text()"/>
-    <xsl:value-of select="zxd:truncate-text(zxd:normalize-for-display($node), $zxd:PRUNE-TEXT-MAX-LENGTH)"/>
+    <xsl:value-of select="zxd:truncate-text(zxd:normalize-for-display($node), $xdm:DEBUG-PRUNE-TEXT-MAX-LENGTH)"/>
   </xsl:function>
 
-  <xsl:variable name="zxd:PRUNE-TEXT-MAX-LENGTH" as="xs:integer" select="40"/>
+  <!-- A public, overridable knob rather than an xdm:debug argument -
+       $level already occupies the one extra optional position on
+       xdm:debug/xdm:debug-color, and a second trailing parameter would
+       force every caller wanting a custom length to also always spell
+       out $level (or worse, invite a differently-named function for
+       every combination). An xsl:param instead needs no change to any
+       call site: a caller's own stylesheet already has higher import
+       precedence than this one (it's the one doing the xsl:import), so
+       redeclaring the same name there overrides this default with no
+       further wiring - the standard XSLT way to make a library
+       constant tunable. Namespaced xdm:, not zxd:, precisely because
+       it's meant to be reached from outside this module - the zxd:
+       namespace's whole point is signaling "not part of the public
+       contract", which would contradict documenting this as an
+       intentional override point. -->
+  <xsl:param name="xdm:DEBUG-PRUNE-TEXT-MAX-LENGTH" as="xs:integer" select="40"/>
 
   <!-- Truncates $text at $maxLength characters, appending a single
        ellipsis character (not this project's usual three-dot '...' -
@@ -396,9 +436,9 @@
                     <xsl:variable name="firstTextNormalized" as="xs:string?" select="
                       if (exists($firstText)) then zxd:normalize-for-display($firstText) else ()"/>
                     <xsl:variable name="firstTextTruncated" as="xs:boolean" select="
-                      exists($firstTextNormalized) and string-length($firstTextNormalized) gt $zxd:PRUNE-TEXT-MAX-LENGTH"/>
+                      exists($firstTextNormalized) and string-length($firstTextNormalized) gt $xdm:DEBUG-PRUNE-TEXT-MAX-LENGTH"/>
                     <xsl:if test="exists($firstTextNormalized)">
-                      <xsl:value-of select="zxd:truncate-text($firstTextNormalized, $zxd:PRUNE-TEXT-MAX-LENGTH)"/>
+                      <xsl:value-of select="zxd:truncate-text($firstTextNormalized, $xdm:DEBUG-PRUNE-TEXT-MAX-LENGTH)"/>
                     </xsl:if>
                     <!-- Marks that this child had more than what got kept -
                          its own child elements, or more than one text node -
@@ -414,7 +454,7 @@
                   </xsl:copy>
                 </xsl:when>
                 <xsl:when test=". instance of text()">
-                  <xsl:value-of select="zxd:truncate-text(zxd:normalize-for-display(.), $zxd:PRUNE-TEXT-MAX-LENGTH)"/>
+                  <xsl:value-of select="zxd:truncate-text(zxd:normalize-for-display(.), $xdm:DEBUG-PRUNE-TEXT-MAX-LENGTH)"/>
                 </xsl:when>
               </xsl:choose>
             </xsl:for-each>
@@ -549,6 +589,12 @@
       <xsl:when test="$payload/self::xdm:atomic">
         <xsl:sequence select="zxd:render-atomic-text($payload, $useColor)"/>
       </xsl:when>
+      <!-- Checked before the general xdm:map case below, since a
+           zxd:with-node-path wrapper serializes as an ordinary
+           xdm:map otherwise indistinguishable from a real one. -->
+      <xsl:when test="$payload/self::xdm:map and zxd:is-node-path-wrapper($payload)">
+        <xsl:sequence select="zxd:render-path-wrapped-text($payload, $useColor, $level)"/>
+      </xsl:when>
       <xsl:when test="$payload/self::xdm:map">
         <xsl:sequence select="zxd:render-map-text($payload, $useColor, $level)"/>
       </xsl:when>
@@ -681,6 +727,53 @@
           zxd:colorize('[', $bc, $useColor) || string-join($members, ', ') || zxd:colorize(']', $bc, $useColor)"/>
       </xsl:otherwise>
     </xsl:choose>
+  </xsl:function>
+
+  <!-- Whether $entry's key is exactly the reserved zxd:NODE-PATH-KEY/
+       zxd:NODE-VALUE-KEY QName $keyVar names - not just a matching
+       local name, but the exact reserved namespace URI too (see
+       zxd:with-node-path). -->
+  <xsl:function name="zxd:is-reserved-node-path-key" as="xs:boolean">
+    <xsl:param name="entry" as="element(xdm:entry)"/>
+    <xsl:param name="keyVar" as="xs:QName"/>
+    <xsl:sequence select="
+      $entry/@key-type eq 'xs:QName'
+      and string($entry/@key) eq local-name-from-QName($keyVar)
+      and string($entry/@key-uri) eq namespace-uri-from-QName($keyVar)"/>
+  </xsl:function>
+
+  <!-- Whether $mapEl is a zxd:with-node-path wrapper rather than a real
+       user map - exactly two entries, one keyed by each reserved
+       QName. A real map would need to use both exact reserved
+       namespaced keys to be mistaken for this, not just entries that
+       happen to have similar-looking string keys. -->
+  <xsl:function name="zxd:is-node-path-wrapper" as="xs:boolean">
+    <xsl:param name="mapEl" as="element(xdm:map)"/>
+    <xsl:variable name="entries" as="element(xdm:entry)*" select="$mapEl/xdm:entry"/>
+    <xsl:sequence select="
+      count($entries) eq 2
+      and (some $e in $entries satisfies zxd:is-reserved-node-path-key($e, $zxd:NODE-PATH-KEY))
+      and (some $e in $entries satisfies zxd:is-reserved-node-path-key($e, $zxd:NODE-VALUE-KEY))"/>
+  </xsl:function>
+
+  <!-- Unwraps a zxd:with-node-path wrapper for display: the wrapped
+       value's own rendering (via zxd:render-item-seq-text, so whatever
+       kind it is renders exactly as it normally would), with the
+       location line prepended above it - same "don't stack onto the
+       value's own leading newline" handling as
+       zxd:render-node-ref-text, which this otherwise mirrors. -->
+  <xsl:function name="zxd:render-path-wrapped-text" as="xs:string">
+    <xsl:param name="mapEl" as="element(xdm:map)"/>
+    <xsl:param name="useColor" as="xs:boolean"/>
+    <xsl:param name="level" as="xs:integer"/>
+    <xsl:variable name="pathEntry" as="element(xdm:entry)" select="$mapEl/xdm:entry[zxd:is-reserved-node-path-key(., $zxd:NODE-PATH-KEY)]"/>
+    <xsl:variable name="valueEntry" as="element(xdm:entry)" select="$mapEl/xdm:entry[zxd:is-reserved-node-path-key(., $zxd:NODE-VALUE-KEY)]"/>
+    <xsl:variable name="pathLine" as="xs:string" select="string($pathEntry/xdm:item[1]/xdm:atomic[1])"/>
+    <xsl:variable name="rendered" as="xs:string" select="zxd:render-item-seq-text($valueEntry/xdm:item, $useColor, $level)"/>
+    <xsl:variable name="prefix" as="xs:string" select="'&#10;' || zxd:indent($level)"/>
+    <xsl:variable name="renderedBody" as="xs:string" select="
+      if (starts-with($rendered, $prefix)) then substring($rendered, string-length($prefix) + 1) else $rendered"/>
+    <xsl:sequence select="$pathLine || $prefix || $renderedBody"/>
   </xsl:function>
 
   <!-- The resolved node's own rendering (exactly as zxd:render-node-text

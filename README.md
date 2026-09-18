@@ -132,18 +132,37 @@ node:  item
 - `$labels`' keys are plain, unquoted labels rather than real map data - so the wrapper itself never reads as part of
   the value.
 - A node value shows its location - `xdm:path()` (above) - on its own line,
-  and is *pruned* before rendering: it keeps its own attributes and
-  immediate text, and its direct child elements with their own attributes
+  whatever kind of node it is: an element, attribute, text, comment,
+  processing-instruction, or namespace node all get one. Elements carry
+  theirs as an extra attribute on the (already pruned) copy; the other
+  kinds can't do that, so they're wrapped instead in a two-entry map keyed
+  by reserved, namespace-qualified `xs:QName`s - not plain strings, so an
+  ordinary map you actually pass to `xdm:debug` could never be mistaken
+  for one by accident - which the renderer recognizes and unwraps back
+  into a location line plus the value's own normal rendering. An element
+  value is additionally *pruned* before rendering: it keeps its own
+  attributes and immediate text, and its direct child elements with their own attributes
   and *their* first immediate text - but nothing deeper than that (no
   grandchild elements). Any kept text is whitespace-normalized first
   (line breaks and runs of spaces collapsed to one each, then trimmed) -
   a raw text node's own indentation/line breaks would otherwise break the
   one-line-per-label layout - unless the nearest `xml:space` setting in
   scope says `preserve`, in which case it's kept verbatim. Whichever text
-  results is then cut at 40 characters with a single `…` (that's why
-  `description`'s text above ends mid-word); a child element that had
-  more than what got kept - its own child elements, or more than one text
-  node - gets that same `…` appended as a marker, so it never reads as
+  results is then cut at `xdm:DEBUG-PRUNE-TEXT-MAX-LENGTH` characters (40
+  by default, hence `description`'s text above ending mid-word) with a
+  single `…` - override it in your own stylesheet if 40 doesn't suit you:
+
+  ```xml
+  <xsl:import href="src/xdm-view.xsl"/>
+
+  <!-- your own stylesheet importing xdm-view.xsl already has higher
+       import precedence, so this simply wins over the library's default -->
+  <xsl:param name="xdm:DEBUG-PRUNE-TEXT-MAX-LENGTH" as="xs:integer" select="80"/>
+  ```
+
+  A child element that had more than what got kept - its own child
+  elements, or more than one text node - gets that same `…` appended as a
+  marker, so it never reads as
   though the kept text were the whole original content (skipped when the
   kept text was already cut by length, to avoid a confusing `…` right
   after a `…`). A label whose value is a bare `text()` node rather than an

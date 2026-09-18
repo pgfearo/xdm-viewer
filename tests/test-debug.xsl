@@ -67,6 +67,27 @@ line two</inner></outer>
   <xsl:variable name="fortyXs" as="xs:string" select="string-join(for $i in 1 to 40 return 'x', '')"/>
   <xsl:variable name="fortyOneXs" as="xs:string" select="$fortyXs || 'x'"/>
 
+  <!-- zxd:with-node-path / zxd:is-node-path-wrapper: the mechanism that
+       gives attribute/text/comment/pi/namespace-node values a location
+       line too, despite none of them being able to carry a zxd:path
+       attribute the way a husked element can. -->
+
+  <xsl:variable name="richElement" as="element()">
+    <ns:tagged xmlns:ns="urn:example" attr="val">
+      <xsl:processing-instruction name="pi-target">pi-data</xsl:processing-instruction>
+      <xsl:comment>a comment</xsl:comment>
+    </ns:tagged>
+  </xsl:variable>
+
+  <xsl:variable name="wrappedAttr" as="map(*)" select="zxd:husk-value($richElement/@attr)[1]"/>
+
+  <xsl:variable name="nonElementResult" as="xs:string" select="xdm:debug('kinds', map {
+    'attr': $richElement/@attr,
+    'comment': $richElement/comment(),
+    'pi': $richElement/processing-instruction(),
+    'ns': $richElement/namespace::ns
+  })"/>
+
   <xsl:variable name="plainResult" as="xs:string" select="xdm:debug('my title', map { 'a': 1, 'b': 'text' })"/>
   <xsl:variable name="colorResult" as="xs:string" select="xdm:debug-color('same', map { 'a': 1 })"/>
   <xsl:variable name="level2Result" as="xs:string" select="xdm:debug('lvl', map { 'x': 1 }, 2)"/>
@@ -102,6 +123,11 @@ line two</inner></outer>
     'husk-value: a bare text() item (not embedded in an element) is normalized and truncated too',
     'husk-value: a bare text() item under xml:space=preserve is kept verbatim',
     'husk-value: bare text() husking also applies inside an array member',
+    'with-node-path: wraps an attribute unchanged, alongside its xdm:path()',
+    'debug end-to-end: an attribute value shows its location and renders as before',
+    'debug end-to-end: a comment value shows its location and renders as before',
+    'debug end-to-end: a processing-instruction value shows its location and renders as before',
+    'debug end-to-end: a namespace-node value shows its location and renders as before',
     'debug: title appears in the banner',
     'debug: an atomic label renders as label colon value',
     'debug: a string label is quoted',
@@ -142,9 +168,14 @@ line two</inner></outer>
     zxd:normalize-for-display($preserved/text()) eq ('line one' || '&#10;' || 'line two'),
     zxd:husk-node($messy)/text() eq 'line one line two with spaces',
     zxd:husk-node($preserved)/text() eq ('line one' || '&#10;' || 'line two'),
-    zxd:husk-value($messy/text())[1] eq 'line one line two with spaces',
-    zxd:husk-value($preserved/text())[1] eq ('line one' || '&#10;' || 'line two'),
-    array:get(zxd:husk-value([$messy/text()])[1], 1) eq 'line one line two with spaces',
+    zxd:husk-value($messy/text())[1]($zxd:NODE-VALUE-KEY) eq 'line one line two with spaces',
+    zxd:husk-value($preserved/text())[1]($zxd:NODE-VALUE-KEY) eq ('line one' || '&#10;' || 'line two'),
+    array:get(zxd:husk-value([$messy/text()])[1], 1)($zxd:NODE-VALUE-KEY) eq 'line one line two with spaces',
+    $wrappedAttr($zxd:NODE-VALUE-KEY) is $richElement/@attr and $wrappedAttr($zxd:NODE-PATH-KEY) eq xdm:path($richElement/@attr),
+    contains($nonElementResult, xdm:path($richElement/@attr)) and contains($nonElementResult, '@attr=&quot;val&quot;'),
+    contains($nonElementResult, xdm:path($richElement/comment())) and contains($nonElementResult, '&lt;!--a comment--&gt;'),
+    contains($nonElementResult, xdm:path($richElement/processing-instruction())) and contains($nonElementResult, '&lt;?pi-target pi-data?&gt;'),
+    contains($nonElementResult, xdm:path($richElement/namespace::ns)) and contains($nonElementResult, 'xmlns:ns=&quot;urn:example&quot;'),
     contains($plainResult, 'my title'),
     contains($plainResult, 'a: 1'),
     contains($plainResult, '''text'''),
