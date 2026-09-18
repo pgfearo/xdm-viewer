@@ -3,6 +3,7 @@
                 xmlns:xs="http://www.w3.org/2001/XMLSchema"
                 xmlns:xdm="http://deltaxignia.com/ns/xdm-persistence"
                 xmlns:zxd="http://deltaxignia.com/ns/xdm-persistence/internal"
+                xmlns:array="http://www.w3.org/2005/xpath-functions/array"
                 exclude-result-prefixes="#all"
                 version="3.0">
 
@@ -98,6 +99,9 @@ line two</inner></outer>
     'normalize-for-display: left verbatim under xml:space=preserve',
     'husk-node end-to-end: a messy text node is normalized in the pruned output',
     'husk-node end-to-end: a preserve-marked text node keeps its line breaks in the pruned output',
+    'husk-value: a bare text() item (not embedded in an element) is normalized and truncated too',
+    'husk-value: a bare text() item under xml:space=preserve is kept verbatim',
+    'husk-value: bare text() husking also applies inside an array member',
     'debug: title appears in the banner',
     'debug: an atomic label renders as label colon value',
     'debug: a string label is quoted',
@@ -138,6 +142,9 @@ line two</inner></outer>
     zxd:normalize-for-display($preserved/text()) eq ('line one' || '&#10;' || 'line two'),
     zxd:husk-node($messy)/text() eq 'line one line two with spaces',
     zxd:husk-node($preserved)/text() eq ('line one' || '&#10;' || 'line two'),
+    zxd:husk-value($messy/text())[1] eq 'line one line two with spaces',
+    zxd:husk-value($preserved/text())[1] eq ('line one' || '&#10;' || 'line two'),
+    array:get(zxd:husk-value([$messy/text()])[1], 1) eq 'line one line two with spaces',
     contains($plainResult, 'my title'),
     contains($plainResult, 'a: 1'),
     contains($plainResult, '''text'''),

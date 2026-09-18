@@ -263,24 +263,44 @@
 
   <!-- Deep-walks $value (through maps, arrays, and sequences) and
        replaces every element()/document-node() item with a husked,
-       path-annotated copy via zxd:husk-node. Used by zxd:debug-core
+       path-annotated copy via zxd:husk-node, and every bare text()
+       item (e.g. a label whose value is $el/text() directly, not
+       embedded in an element) with a whitespace-normalized, truncated
+       copy via zxd:husk-text - same zxd:normalize-for-display/
+       zxd:truncate-text treatment a text node gets when it's kept as
+       part of a husked element, just applied when the text node is
+       itself the top-level item instead. Used by zxd:debug-core
        before handing $labels to plain xdm:to-document(), so the tree
        serialize/render ever see is already bounded in size - no limit
        needs threading through the renderer itself. Every other item
-       kind (atomics; attribute, text, comment, pi, namespace nodes)
-       passes through unchanged - they're not the deep-tree verbosity
-       risk this exists for, and (except atomics) have nowhere to hang
-       a location marker anyway. -->
+       kind (atomics; attribute, comment, pi, namespace nodes) passes
+       through unchanged - they're not the deep-tree/long-text
+       verbosity risk this exists for, and (except atomics) have
+       nowhere to hang a location marker anyway. -->
   <xsl:function name="zxd:husk-value" as="item()*">
     <xsl:param name="value" as="item()*"/>
     <xsl:sequence select="
       for $item in $value return
         if ($item instance of element() or $item instance of document-node()) then zxd:husk-node($item)
+        else if ($item instance of text()) then zxd:husk-text($item)
         else if ($item instance of map(*)) then
           map:merge(for $k in map:keys($item) return map:entry($k, zxd:husk-value($item($k))))
         else if ($item instance of array(*)) then
           array:for-each($item, function($x as item()*) as item()* { zxd:husk-value($x) })
         else $item"/>
+  </xsl:function>
+
+  <!-- The truncated, whitespace-normalized text a bare text() value
+       shows in xdm:debug - see zxd:husk-value. An xsl:value-of, not an
+       inline XPath text constructor: XSLT's XPath grammar (unlike
+       XQuery's) has no bare "text { ... }" node-construction
+       expression, so this small function exists to do the
+       construction as an instruction and hand back a plain text()
+       value for zxd:husk-value's otherwise-pure XPath expression to
+       use. -->
+  <xsl:function name="zxd:husk-text" as="text()">
+    <xsl:param name="node" as="text()"/>
+    <xsl:value-of select="zxd:truncate-text(zxd:normalize-for-display($node), $zxd:PRUNE-TEXT-MAX-LENGTH)"/>
   </xsl:function>
 
   <xsl:variable name="zxd:PRUNE-TEXT-MAX-LENGTH" as="xs:integer" select="40"/>

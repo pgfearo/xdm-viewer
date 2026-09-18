@@ -146,7 +146,9 @@ node:  item
   node - gets that same `…` appended as a marker, so it never reads as
   though the kept text were the whole original content (skipped when the
   kept text was already cut by length, to avoid a confusing `…` right
-  after a `…`). This keeps `xdm:debug` cheap and its output bounded even when
+  after a `…`). A label whose value is a bare `text()` node rather than an
+  element (e.g. `$el/text()` passed directly) gets the same
+  normalize-then-truncate treatment on its own. This keeps `xdm:debug` cheap and its output bounded even when
   called on every iteration of a loop over a large document - it never
   copies more than a node's own immediate shape and a little text, unlike
   a full recursive render. Two labels pointing at the same node each
