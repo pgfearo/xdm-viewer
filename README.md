@@ -137,7 +137,12 @@ node:  item
   and *their* first immediate text - but nothing deeper than that (no
   grandchild elements). Any kept text longer than 40 characters is cut
   there with a single `…` (that's why `description`'s text above ends
-  mid-word). This keeps `xdm:debug` cheap and its output bounded even when
+  mid-word); a child element that had more than what got kept - its own
+  child elements, or more than one text node - gets that same `…`
+  appended as a marker, so it never reads as though the kept text were
+  the whole original content (skipped when the kept text was already cut
+  by length, to avoid a confusing `…` right after a `…`). This keeps
+  `xdm:debug` cheap and its output bounded even when
   called on every iteration of a loop over a large document - it never
   copies more than a node's own immediate shape and a little text, unlike
   a full recursive render. Two labels pointing at the same node each

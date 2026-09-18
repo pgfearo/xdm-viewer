@@ -337,8 +337,21 @@
                   <xsl:copy copy-namespaces="no">
                     <xsl:sequence select="@*"/>
                     <xsl:variable name="firstText" as="text()?" select="text()[1]"/>
+                    <xsl:variable name="firstTextTruncated" as="xs:boolean" select="
+                      exists($firstText) and string-length(string($firstText)) gt $zxd:PRUNE-TEXT-MAX-LENGTH"/>
                     <xsl:if test="exists($firstText)">
                       <xsl:value-of select="zxd:truncate-text(string($firstText), $zxd:PRUNE-TEXT-MAX-LENGTH)"/>
+                    </xsl:if>
+                    <!-- Marks that this child had more than what got kept -
+                         its own child elements, or more than one text node -
+                         so an untruncated first text doesn't read as though
+                         it were the whole original content. Skipped when
+                         $firstText was already cut by length: that ellipsis
+                         already says "not everything is shown" on its own,
+                         and a second one right after it would just look
+                         like a mistake. -->
+                    <xsl:if test="not($firstTextTruncated) and (exists(*) or count(text()) gt 1)">
+                      <xsl:value-of select="'&#x2026;'"/>
                     </xsl:if>
                   </xsl:copy>
                 </xsl:when>
