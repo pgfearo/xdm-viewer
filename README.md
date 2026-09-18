@@ -101,31 +101,37 @@ one `xsl:message` call at a checkpoint in a stylesheet - not a general
 substitute for `xdm:view-text`, since it always adds a title banner and
 label columns that other callers may not want.
 
+XSLT snippet:
+
 ```xml
+<!-- variable declarations -->
 <xsl:variable name="total" as="xs:double" select="42.5"/>
 <xsl:variable name="items" as="xs:integer*" select="(1, 2, 3)"/>
 <xsl:variable name="node" as="element()">
   <item sku="A1">
     <name>Widget</name>
-    <description>A widget that does many things, described here at some length</description>
+    <description>A widget that does many things</description>
   </item>
 </xsl:variable>
 
-<xsl:message select="xdm:debug('after totals loop', map {
+<!-- debug instruction -->
+<xsl:message select="xdm:debug(
+'items: ' || count($items), 
+ map {
   'total': $total, 
   'items': $items, 
   'node':  $node
 })"/>
 ```
-
+`xsl:message` output:
 ```
-───────────────────────── after totals loop ──────────────────────────
+───────────────────────── items: 3 ──────────────────────────
 total: 42.5
 items: (1, 2, 3)
 node:  item
        <item sku="A1">
           <name>Widget</name>
-          <description>A widget that does many things, describe…</description>
+          <description>A widget that does many things</description>
        </item>
 ```
 
