@@ -283,20 +283,38 @@
         else $item"/>
   </xsl:function>
 
+  <xsl:variable name="zxd:PRUNE-TEXT-MAX-LENGTH" as="xs:integer" select="40"/>
+
+  <!-- Truncates $text at $maxLength characters, appending a single
+       ellipsis character (not this project's usual three-dot '...' -
+       that's zxd:render-node-text's own leaf-truncation marker, kept
+       distinct so the two truncation points don't look identical) when
+       it was actually cut. -->
+  <xsl:function name="zxd:truncate-text" as="xs:string">
+    <xsl:param name="text" as="xs:string"/>
+    <xsl:param name="maxLength" as="xs:integer"/>
+    <xsl:sequence select="
+      if (string-length($text) gt $maxLength)
+      then substring($text, 1, $maxLength) || '&#x2026;'
+      else $text"/>
+  </xsl:function>
+
   <!-- Bounds the display cost of a node value to O(its own attributes +
-       direct children), regardless of how deep or large the real
-       subtree is - the element keeps its own attributes and its
-       direct child elements (with their own attributes), but nothing
-       past that; a document node recurses into its child element the
-       same way. Location is computed via xdm:path() on the *original*
-       node, before the shallow copy loses its ancestor context, and
-       travels along as a zxd:path attribute on the husked element -
-       zxd:render-node-text knows to pull it back out as a location
-       line and strip it so it never displays as a fake extra
-       attribute of the real content. Only ever called (via
-       zxd:husk-value) on element()/document-node() items - the
-       "otherwise" branch's own $node is therefore always an
-       element(). -->
+       direct children + a little text), regardless of how deep or
+       large the real subtree is - the element keeps its own
+       attributes, its own immediate text-node children (each
+       truncated via zxd:truncate-text), and its direct child elements
+       with their own attributes and *their* first immediate text-node
+       child (also truncated) - nothing past that; a document node
+       recurses into its child element the same way. Location is
+       computed via xdm:path() on the *original* node, before the
+       shallow copy loses its ancestor context, and travels along as a
+       zxd:path attribute on the husked element - zxd:render-node-text
+       knows to pull it back out as a location line and strip it so it
+       never displays as a fake extra attribute of the real content.
+       Only ever called (via zxd:husk-value) on element()/
+       document-node() items - the "otherwise" branch's own $node is
+       therefore always an element(). -->
   <xsl:function name="zxd:husk-node" as="node()">
     <xsl:param name="node" as="node()"/>
     <xsl:choose>
@@ -313,10 +331,21 @@
           <xsl:copy copy-namespaces="no">
             <xsl:attribute name="zxd:path" select="$path"/>
             <xsl:sequence select="@*"/>
-            <xsl:for-each select="*">
-              <xsl:copy copy-namespaces="no">
-                <xsl:sequence select="@*"/>
-              </xsl:copy>
+            <xsl:for-each select="node()">
+              <xsl:choose>
+                <xsl:when test=". instance of element()">
+                  <xsl:copy copy-namespaces="no">
+                    <xsl:sequence select="@*"/>
+                    <xsl:variable name="firstText" as="text()?" select="text()[1]"/>
+                    <xsl:if test="exists($firstText)">
+                      <xsl:value-of select="zxd:truncate-text(string($firstText), $zxd:PRUNE-TEXT-MAX-LENGTH)"/>
+                    </xsl:if>
+                  </xsl:copy>
+                </xsl:when>
+                <xsl:when test=". instance of text()">
+                  <xsl:value-of select="zxd:truncate-text(string(.), $zxd:PRUNE-TEXT-MAX-LENGTH)"/>
+                </xsl:when>
+              </xsl:choose>
             </xsl:for-each>
           </xsl:copy>
         </xsl:for-each>

@@ -105,7 +105,10 @@ label columns that other callers may not want.
 <xsl:variable name="total" as="xs:double" select="42.5"/>
 <xsl:variable name="items" as="xs:integer*" select="(1, 2, 3)"/>
 <xsl:variable name="node" as="element()">
-  <item sku="A1"><name>Widget</name></item>
+  <item sku="A1">
+    <name>Widget</name>
+    <description>A widget that does many things, described here at some length</description>
+  </item>
 </xsl:variable>
 
 <xsl:message select="xdm:debug('after totals loop', map {
@@ -121,29 +124,34 @@ total: 42.5
 items: (1, 2, 3)
 node:  item
        <item sku="A1">
-          <name/>
+          <name>Widget</name>
+          <description>A widget that does many things, describe…</description>
        </item>
 ```
 
 - `$labels`' keys are plain, unquoted labels rather than real map data - so the wrapper itself never reads as part of
   the value.
 - A node value shows its location - `xdm:path()` (above) - on its own line,
-  and is pruned before rendering: only its own attributes and its direct
-  child elements' tags/attributes survive, everything deeper is dropped
-  (that's why `<name>Widget</name>` above renders as `<name/>`). This keeps
-  `xdm:debug` cheap and its output bounded even when called on every
-  iteration of a loop over a large document - it never copies more than a
-  node's own immediate shape, unlike a full recursive render. Two labels
-  pointing at the same node each independently show the same path text,
-  which is enough to spot that they're the same node without needing any
-  actual identity-tracking machinery (`xdm:view-text-with-refs`, which
-  isn't built for hot-loop use, still has real `#N` cross-references for
-  when that's what you want).
+  and is *pruned* before rendering: it keeps its own attributes and
+  immediate text, and its direct child elements with their own attributes
+  and *their* first immediate text - but nothing deeper than that (no
+  grandchild elements). Any kept text longer than 40 characters is cut
+  there with a single `…` (that's why `description`'s text above ends
+  mid-word). This keeps `xdm:debug` cheap and its output bounded even when
+  called on every iteration of a loop over a large document - it never
+  copies more than a node's own immediate shape and a little text, unlike
+  a full recursive render. Two labels pointing at the same node each
+  independently show the same path text, which is enough to spot that
+  they're the same node without needing any actual identity-tracking
+  machinery (`xdm:view-text-with-refs`, which isn't built for hot-loop
+  use, still has real `#N` cross-references for when that's what you
+  want).
 - Map key order isn't guaranteed on an XPath-3.1-only processor, so labels
-  can print in a different order than you wrote them - above,
-  `total`/`items`/`node` came out as `items`/`node`/`total`. XPath/XQuery/
-  XSLT 4.0 changes this (maps are now an ordered sequence of entries), and
-  Saxon 13 already preserves insertion order accordingly.
+  can print in a different order than you wrote them there, even though
+  the example above (running on ordered-map semantics) shows
+  `total`/`items`/`node` exactly as written. XPath/XQuery/XSLT 4.0 changes
+  this (maps are now an ordered sequence of entries), and Saxon 13 already
+  preserves insertion order accordingly.
 - Color is a separate function, `xdm:debug-color($title, $labels)`, rather
   than a `$useColor` flag on `xdm:debug` - with `$level` (below) as the
   other optional trailing parameter, one name can't host two independently-
