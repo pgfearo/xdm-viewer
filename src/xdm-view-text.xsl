@@ -3,7 +3,9 @@
                 xmlns:xs="http://www.w3.org/2001/XMLSchema"
                 xmlns:xdm="http://deltaxignia.com/ns/xdm-persistence"
                 xmlns:zxd="http://deltaxignia.com/ns/xdm-persistence/internal"
-                exclude-result-prefixes="xsl zxd"
+                xmlns:map="http://www.w3.org/2005/xpath-functions/map"
+                xmlns:array="http://www.w3.org/2005/xpath-functions/array"
+                exclude-result-prefixes="xsl zxd map array"
                 version="3.0">
 
   <!--
@@ -127,11 +129,23 @@
        xsl:message call - $labels' keys are read as plain, unquoted
        labels, not rendered as a real map value in its own right (no
        {}/quoted-key styling), so the wrapper itself doesn't show up as
-       noise in the output. Every labeled value is serialized together
-       in one xdm:serialize-with-refs call, so identity/pool-document
-       numbering (#1, #2, ...) stays consistent across them exactly as
-       it would for a single ordinary value - e.g. two labels pointing
-       at the same document still show matching #N text.
+       noise in the output.
+
+       Deliberately built on plain xdm:serialize(), not
+       xdm:serialize-with-refs() - the latter has to copy the *whole*
+       document behind any referenced node, to support later
+       re-parsing debug output will never do. That's an unacceptable
+       cost for something that might run on every iteration of a hot
+       loop. Instead, $labels' values are pre-processed by
+       zxd:husk-value before serializing: any element()/document-node()
+       found (at any depth, through maps/arrays/sequences) is replaced
+       by a shallow copy carrying its location as a zxd:path attribute
+       (computed via xdm:path() on the *original* node, cheap - O(its
+       own depth), no document copy) - see zxd:husk-node/
+       zxd:render-node-text for the rest. Two labels pointing at the
+       same node each independently compute and show the same path
+       text, which is enough to spot the connection without needing
+       any actual identity-tracking machinery.
 
        Each label's ': ' follows its own text immediately - the padding
        needed to line every value up in a common column goes after the
@@ -230,8 +244,8 @@
     <xsl:param name="useColor" as="xs:boolean"/>
     <xsl:param name="level" as="xs:integer"/>
     <xsl:variable name="banner" as="xs:string" select="zxd:debug-banner($title)"/>
-    <xsl:variable name="serialized" as="document-node()" select="xdm:serialize-with-refs($labels)"/>
-    <xsl:variable name="entries" as="element(xdm:entry)*" select="$serialized/xdm:context/xdm:sequence/xdm:item/xdm:map/xdm:entry"/>
+    <xsl:variable name="serialized" as="document-node()" select="xdm:serialize(zxd:husk-value($labels))"/>
+    <xsl:variable name="entries" as="element(xdm:entry)*" select="$serialized/xdm:sequence/xdm:item/xdm:map/xdm:entry"/>
     <xsl:variable name="labelWidth" as="xs:integer" select="
       max((0, for $e in $entries return string-length(zxd:debug-display-label(string($e/@key)))))"/>
     <xsl:variable name="prefixWidth" as="xs:integer" select="$labelWidth + 2"/> <!-- + ': ' -->
@@ -245,6 +259,69 @@
     <xsl:variable name="body" as="xs:string" select="'&#10;' || $banner || '&#10;' || string-join($lines, '&#10;')"/>
     <xsl:variable name="levelPad" as="xs:string" select="zxd:pad-right('', max((0, ($level - 1) * 5)))"/>
     <xsl:sequence select="zxd:indent-all-lines($body, $levelPad)"/>
+  </xsl:function>
+
+  <!-- Deep-walks $value (through maps, arrays, and sequences) and
+       replaces every element()/document-node() item with a husked,
+       path-annotated copy via zxd:husk-node. Used by zxd:debug-core
+       before handing $labels to plain xdm:serialize(), so the tree
+       serialize/render ever see is already bounded in size - no limit
+       needs threading through the renderer itself. Every other item
+       kind (atomics; attribute, text, comment, pi, namespace nodes)
+       passes through unchanged - they're not the deep-tree verbosity
+       risk this exists for, and (except atomics) have nowhere to hang
+       a location marker anyway. -->
+  <xsl:function name="zxd:husk-value" as="item()*">
+    <xsl:param name="value" as="item()*"/>
+    <xsl:sequence select="
+      for $item in $value return
+        if ($item instance of element() or $item instance of document-node()) then zxd:husk-node($item)
+        else if ($item instance of map(*)) then
+          map:merge(for $k in map:keys($item) return map:entry($k, zxd:husk-value($item($k))))
+        else if ($item instance of array(*)) then
+          array:for-each($item, function($x as item()*) as item()* { zxd:husk-value($x) })
+        else $item"/>
+  </xsl:function>
+
+  <!-- Bounds the display cost of a node value to O(its own attributes +
+       direct children), regardless of how deep or large the real
+       subtree is - the element keeps its own attributes and its
+       direct child elements (with their own attributes), but nothing
+       past that; a document node recurses into its child element the
+       same way. Location is computed via xdm:path() on the *original*
+       node, before the shallow copy loses its ancestor context, and
+       travels along as a zxd:path attribute on the husked element -
+       zxd:render-node-text knows to pull it back out as a location
+       line and strip it so it never displays as a fake extra
+       attribute of the real content. Only ever called (via
+       zxd:husk-value) on element()/document-node() items - the
+       "otherwise" branch's own $node is therefore always an
+       element(). -->
+  <xsl:function name="zxd:husk-node" as="node()">
+    <xsl:param name="node" as="node()"/>
+    <xsl:choose>
+      <xsl:when test="$node instance of document-node()">
+        <xsl:document>
+          <xsl:for-each select="$node/node()">
+            <xsl:sequence select="if (. instance of element()) then zxd:husk-node(.) else ."/>
+          </xsl:for-each>
+        </xsl:document>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:variable name="path" as="xs:string" select="xdm:path($node)"/>
+        <xsl:for-each select="$node">
+          <xsl:copy copy-namespaces="no">
+            <xsl:attribute name="zxd:path" select="$path"/>
+            <xsl:sequence select="@*"/>
+            <xsl:for-each select="*">
+              <xsl:copy copy-namespaces="no">
+                <xsl:sequence select="@*"/>
+              </xsl:copy>
+            </xsl:for-each>
+          </xsl:copy>
+        </xsl:for-each>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:function>
 
   <!-- Unlike zxd:indent-continuation-lines (which leaves a value's own
@@ -533,55 +610,87 @@
     <xsl:sequence select="$pathLine || $prefix || $renderedBody"/>
   </xsl:function>
 
+  <!-- Removes just the one zxd:path marker attribute zxd:husk-node adds
+       (see zxd:render-node-text), keeping everything else - the node's
+       real attributes and children - untouched. -->
+  <xsl:function name="zxd:strip-path-attr" as="element()">
+    <xsl:param name="el" as="element()"/>
+    <xsl:for-each select="$el">
+      <xsl:copy copy-namespaces="no">
+        <xsl:sequence select="@* except @zxd:path"/>
+        <xsl:sequence select="node()"/>
+      </xsl:copy>
+    </xsl:for-each>
+  </xsl:function>
+
   <!-- A real (element/document) node has no compact XPath-literal form. A
        leaf-like node (no descendant elements) is shown as truncated,
        single-line markup; one with descendant elements is pretty-printed
        with conventional XML indentation instead, aligned to the current
        nesting level - truncating nested markup to a fixed length would
-       just cut it apart awkwardly. -->
+       just cut it apart awkwardly.
+
+       A zxd:path attribute on $node means it was husked for xdm:debug
+       (zxd:husk-node) - shown as an uncolored location line above the
+       node's own rendering (mirroring zxd:render-node-ref-text's own
+       path-line handling, including its "don't stack onto the
+       multi-line branch's own leading newline" fix), then stripped so
+       it never displays as a fake extra attribute of the real content.
+       Every other caller (xdm:view-text, a resolved xdm:node-ref, ...)
+       never sets this attribute, so it's a no-op for them. -->
   <xsl:function name="zxd:render-node-text" as="xs:string">
     <xsl:param name="node" as="node()*"/>
     <xsl:param name="useColor" as="xs:boolean"/>
     <xsl:param name="level" as="xs:integer"/>
-    <xsl:variable name="clean" as="node()*" select="zxd:strip-unused-namespaces($node)"/>
-    <xsl:choose>
-      <xsl:when test="exists($clean/descendant::*)">
-        <xsl:variable name="indent" as="xs:string" select="zxd:indent($level)"/>
-        <xsl:variable name="raw" as="xs:string" select="
-          string-join(for $n in $clean return serialize($n, map{'method':'xml', 'indent': true()}), '&#10;')"/>
-        <!-- Whether serialize() surrounds a lone element's indented markup
-             with a leading/trailing newline is implementation-defined (the
-             exact whitespace under indent="yes" isn't part of the spec,
-             and does vary between Saxon versions) - so any such leading or
-             trailing newline is stripped explicitly here, rather than
-             assuming a fixed one is (or isn't) present and dropping a
-             token by position, which silently ate the real opening tag on
-             Saxon versions that don't add the leading newline.
-             The (always-added, by us) leading newline is emitted as plain
-             text BEFORE the color escape (rather than joined into the
-             colorized text) - some terminals/log sinks swallow a bare
-             newline that immediately follows a color-start code with
-             nothing in between, which otherwise merges the element's start
-             tag back onto the 'key: ' line. -->
-        <xsl:variable name="withoutLeadingNewline" as="xs:string" select="
-          if (starts-with($raw, '&#10;')) then substring($raw, 2) else $raw"/>
-        <xsl:variable name="trimmed" as="xs:string" select="
-          if (ends-with($withoutLeadingNewline, '&#10;'))
-          then substring($withoutLeadingNewline, 1, string-length($withoutLeadingNewline) - 1)
-          else $withoutLeadingNewline"/>
-        <xsl:variable name="body" as="xs:string" select="
-          string-join(tokenize($trimmed, '&#10;'), '&#10;' || $indent)"/>
-        <xsl:sequence select="'&#10;' || $indent || zxd:colorize($body, $zxd:BLUE, $useColor)"/>
-      </xsl:when>
-      <xsl:otherwise>
-        <xsl:variable name="maxLength" as="xs:integer" select="80"/>
-        <xsl:variable name="raw" as="xs:string" select="
-          string-join(for $n in $clean return serialize($n, map{'method':'xml', 'indent': false()}), '')"/>
-        <xsl:variable name="text" as="xs:string" select="
-          if (string-length($raw) gt $maxLength) then substring($raw, 1, $maxLength - 3) || '...' else $raw"/>
-        <xsl:sequence select="zxd:colorize($text, $zxd:BLUE, $useColor)"/>
-      </xsl:otherwise>
-    </xsl:choose>
+    <xsl:variable name="pathLine" as="xs:string?" select="($node/self::element()/@zxd:path/string(.))[1]"/>
+    <xsl:variable name="displayNode" as="node()*" select="
+      for $n in $node return
+        if ($n instance of element() and exists($n/@zxd:path)) then zxd:strip-path-attr($n) else $n"/>
+    <xsl:variable name="clean" as="node()*" select="zxd:strip-unused-namespaces($displayNode)"/>
+    <xsl:variable name="rendered" as="xs:string">
+      <xsl:choose>
+        <xsl:when test="exists($clean/descendant::*)">
+          <xsl:variable name="indent" as="xs:string" select="zxd:indent($level)"/>
+          <xsl:variable name="raw" as="xs:string" select="
+            string-join(for $n in $clean return serialize($n, map{'method':'xml', 'indent': true()}), '&#10;')"/>
+          <!-- Whether serialize() surrounds a lone element's indented markup
+               with a leading/trailing newline is implementation-defined (the
+               exact whitespace under indent="yes" isn't part of the spec,
+               and does vary between Saxon versions) - so any such leading or
+               trailing newline is stripped explicitly here, rather than
+               assuming a fixed one is (or isn't) present and dropping a
+               token by position, which silently ate the real opening tag on
+               Saxon versions that don't add the leading newline.
+               The (always-added, by us) leading newline is emitted as plain
+               text BEFORE the color escape (rather than joined into the
+               colorized text) - some terminals/log sinks swallow a bare
+               newline that immediately follows a color-start code with
+               nothing in between, which otherwise merges the element's start
+               tag back onto the 'key: ' line. -->
+          <xsl:variable name="withoutLeadingNewline" as="xs:string" select="
+            if (starts-with($raw, '&#10;')) then substring($raw, 2) else $raw"/>
+          <xsl:variable name="trimmed" as="xs:string" select="
+            if (ends-with($withoutLeadingNewline, '&#10;'))
+            then substring($withoutLeadingNewline, 1, string-length($withoutLeadingNewline) - 1)
+            else $withoutLeadingNewline"/>
+          <xsl:variable name="body" as="xs:string" select="
+            string-join(tokenize($trimmed, '&#10;'), '&#10;' || $indent)"/>
+          <xsl:sequence select="'&#10;' || $indent || zxd:colorize($body, $zxd:BLUE, $useColor)"/>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:variable name="maxLength" as="xs:integer" select="80"/>
+          <xsl:variable name="raw" as="xs:string" select="
+            string-join(for $n in $clean return serialize($n, map{'method':'xml', 'indent': false()}), '')"/>
+          <xsl:variable name="text" as="xs:string" select="
+            if (string-length($raw) gt $maxLength) then substring($raw, 1, $maxLength - 3) || '...' else $raw"/>
+          <xsl:sequence select="zxd:colorize($text, $zxd:BLUE, $useColor)"/>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+    <xsl:variable name="prefix" as="xs:string" select="'&#10;' || zxd:indent($level)"/>
+    <xsl:variable name="renderedBody" as="xs:string" select="
+      if (starts-with($rendered, $prefix)) then substring($rendered, string-length($prefix) + 1) else $rendered"/>
+    <xsl:sequence select="if (exists($pathLine)) then $pathLine || $prefix || $renderedBody else $rendered"/>
   </xsl:function>
 
 </xsl:stylesheet>

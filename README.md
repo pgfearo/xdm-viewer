@@ -117,20 +117,28 @@ label columns that other callers may not want.
 
 ```
 ───────────────────────── after totals loop ──────────────────────────
-items: (1, 2, 3)
-node:  
-       <item sku="A1">
-          <name>Widget</name>
-       </item>
 total: 42.5
+items: (1, 2, 3)
+node:  item
+       <item sku="A1">
+          <name/>
+       </item>
 ```
 
 - `$labels`' keys are plain, unquoted labels rather than real map data - so the wrapper itself never reads as part of
   the value.
-- All labeled values are serialized together in one call, so identity is
-  preserved consistently across them exactly as it is for a single ordinary
-  value: two labels pointing at the same document still show matching `#N`
-  references.
+- A node value shows its location - `xdm:path()` (above) - on its own line,
+  and is pruned before rendering: only its own attributes and its direct
+  child elements' tags/attributes survive, everything deeper is dropped
+  (that's why `<name>Widget</name>` above renders as `<name/>`). This keeps
+  `xdm:debug` cheap and its output bounded even when called on every
+  iteration of a loop over a large document - it never copies more than a
+  node's own immediate shape, unlike a full recursive render. Two labels
+  pointing at the same node each independently show the same path text,
+  which is enough to spot that they're the same node without needing any
+  actual identity-tracking machinery (`xdm:view-text-with-refs`, which
+  isn't built for hot-loop use, still has real `#N` cross-references for
+  when that's what you want).
 - Map key order isn't guaranteed on an XPath-3.1-only processor, so labels
   can print in a different order than you wrote them - above,
   `total`/`items`/`node` came out as `items`/`node`/`total`. XPath/XQuery/
