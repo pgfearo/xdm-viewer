@@ -871,11 +871,8 @@
           <xsl:sequence select="'&#10;' || $indent || zxd:colorize($body, $zxd:BLUE, $useColor)"/>
         </xsl:when>
         <xsl:otherwise>
-          <xsl:variable name="maxLength" as="xs:integer" select="80"/>
-          <xsl:variable name="raw" as="xs:string" select="
-            string-join(for $n in $clean return serialize($n, map{'method':'xml', 'indent': false()}), '')"/>
           <xsl:variable name="text" as="xs:string" select="
-            if (string-length($raw) gt $maxLength) then substring($raw, 1, $maxLength - 3) || '...' else $raw"/>
+            string-join(for $n in $clean return serialize($n, map{'method':'xml', 'indent': false()}), '')"/>
           <xsl:sequence select="zxd:colorize($text, $zxd:BLUE, $useColor)"/>
         </xsl:otherwise>
       </xsl:choose>
