@@ -10,10 +10,10 @@
        Checks xdm:path() across the node kinds and disambiguation rules
        it documents: an only child of its kind stays a bare step, a
        same-kind sibling forces a [N] predicate, non-element kinds
-       (attribute/text/comment) get their own step form, a
-       document-rooted node gets a leading '/', a standalone
-       (document-less) node doesn't, and the bare document-node()
-       case renders as '(whole document)'.
+       (attribute/text/comment) get their own step form, every non-
+       document path (document-rooted or standalone) gets a leading
+       '/', and the bare document-node() case renders as
+       '(whole document)'.
 
        Fully deterministic - xdm:path() walks real ancestor axes on a
        node directly, not a map, so none of this depends on the
@@ -44,7 +44,7 @@
     'text() step under an only-child title',
     'comment() step',
     'bare document-node() is (whole document)',
-    'a node with no document ancestor has no leading /'
+    'a node with no document ancestor still gets a leading /'
   )"/>
 
   <xsl:variable name="checkResults" as="xs:boolean*" select="(
@@ -55,7 +55,7 @@
     xdm:path($doc//ns:book[1]/title/text()) eq '/books/ns:book[1]/title/text()',
     xdm:path($doc//preface/comment()) eq '/books/preface/comment()',
     xdm:path($doc) eq '(whole document)',
-    xdm:path($standalone) eq 'item'
+    xdm:path($standalone) eq '/item'
   )"/>
 
   <xsl:template name="xsl:initial-template">

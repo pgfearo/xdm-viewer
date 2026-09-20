@@ -3,7 +3,9 @@
                 xmlns:xs="http://www.w3.org/2001/XMLSchema"
                 xmlns:xdm="http://deltaxignia.com/ns/xdm-persistence"
                 xmlns:zxd="http://deltaxignia.com/ns/xdm-persistence/internal"
-                exclude-result-prefixes="xsl zxd"
+                xmlns:map="http://www.w3.org/2005/xpath-functions/map"
+                xmlns:array="http://www.w3.org/2005/xpath-functions/array"
+                exclude-result-prefixes="xsl zxd map array"
                 version="3.0">
 
   <!--
@@ -55,11 +57,51 @@
        any token's text - line breaks and indentation are a consumer/CSS
        concern, the same way they would be for any other structured-data
        renderer.
+
+       kind="node-path" is the one exception to "no further nesting
+       beyond entry": xdm:view-tokens (not xdm:persisted-to-token-view,
+       and not xdm:view-tokens-with-refs, which already shows this via
+       kind="node-ref" - see below) shows every element()/document-node()
+       value's own xdm:path() location as a leading 'value' token above
+       its markup, the same information xdm:debug already shows for node
+       values (zxd:husk-node), just without xdm:debug's pruning/
+       truncation - the tokens view always shows a node's full rendering.
+       This only works by computing the path on the *original* live
+       value before xdm:to-document() ever copies it into the persisted
+       tree (via zxd:with-node-paths/the existing zxd:with-node-path
+       wrapper xdm-view-text.xsl already defines for xdm:debug's own
+       use) - a path recomputed *after* persistence would reflect the
+       copy's position inside the persisted xdm: tree, not the node's
+       real location, so this can only be offered from the value-level
+       entry point, never from a document already persisted separately.
   -->
 
   <xsl:function name="xdm:view-tokens" as="element()*">
     <xsl:param name="value" as="item()*"/>
-    <xsl:sequence select="xdm:persisted-to-token-view(xdm:to-document($value))"/>
+    <xsl:sequence select="xdm:persisted-to-token-view(xdm:to-document(zxd:with-node-paths($value)))"/>
+  </xsl:function>
+
+  <!-- Deep-walks $value (through maps, arrays, and sequences - mirroring
+       zxd:husk-value's own traversal) and wraps every element()/
+       document-node() item with its xdm:path() location, computed here
+       while it's still the real, live node (see this file's header
+       comment). Unlike zxd:husk-value, the node itself is passed through
+       completely unchanged - no pruning, no truncation - and every other
+       item kind (atomics, maps, arrays, attributes, text, ...) is left
+       alone entirely; xdm:debug's reasons for widening this to those
+       other kinds are specific to fitting a value into one debug-message
+       line, which doesn't apply here. -->
+  <xsl:function name="zxd:with-node-paths" as="item()*">
+    <xsl:param name="value" as="item()*"/>
+    <xsl:sequence select="
+      for $item in $value return
+        if ($item instance of element() or $item instance of document-node())
+        then zxd:with-node-path($item, $item)
+        else if ($item instance of map(*)) then
+          map:merge(for $k in map:keys($item) return map:entry($k, zxd:with-node-paths($item($k))))
+        else if ($item instance of array(*)) then
+          array:for-each($item, function($x as item()*) as item()* { zxd:with-node-paths($x) })
+        else $item"/>
   </xsl:function>
 
   <!-- For a value already persisted via xdm-persistence's xdm:to-document()
@@ -141,6 +183,14 @@
     <xsl:choose>
       <xsl:when test="$payload/self::xdm:atomic">
         <xsl:sequence select="zxd:render-atomic-tokens($payload)"/>
+      </xsl:when>
+      <!-- Checked before the general xdm:map case below, since a
+           zxd:with-node-path wrapper (added by zxd:with-node-paths -
+           see this file's header comment) serializes as an ordinary
+           xdm:map otherwise indistinguishable from a real one -
+           mirroring zxd:render-payload-text's own precedent. -->
+      <xsl:when test="$payload/self::xdm:map and zxd:is-node-path-wrapper($payload)">
+        <xsl:sequence select="zxd:render-path-wrapped-tokens($payload)"/>
       </xsl:when>
       <xsl:when test="$payload/self::xdm:map">
         <xsl:sequence select="zxd:render-map-tokens($payload)"/>
@@ -280,8 +330,40 @@
     <xsl:param name="ref" as="element(xdm:node-ref)"/>
     <xsl:variable name="resolved" as="node()" select="zxd:resolve-node-ref($ref)"/>
     <xdm:group kind="node-ref" foldable="false">
-      <xsl:sequence select="zxd:token('value', zxd:render-node-ref-path-text($ref))"/>
+      <!-- 'punct', not 'value' - matches zxd:render-node-ref-text's own
+           choice to leave this line in the default/uncolored foreground
+           so it reads as a quiet annotation, not part of the value
+           itself; a consumer's CSS is expected to also put it on its
+           own line, ahead of the node's own rendering, the same way. -->
+      <xsl:sequence select="zxd:token('punct', zxd:render-node-ref-path-text($ref))"/>
       <xsl:sequence select="zxd:render-node-tokens($resolved)"/>
+    </xdm:group>
+  </xsl:function>
+
+  <!-- Unwraps a zxd:with-node-path wrapper (added by zxd:with-node-paths
+       for xdm:view-tokens - not to be confused with kind="node-ref",
+       which is xdm:view-tokens-with-refs's own, differently-sourced
+       equivalent): the wrapped value's own tokens
+       (zxd:render-item-seq-tokens, so whatever kind it is renders
+       exactly as it normally would - always a single node's markup in
+       practice, since zxd:with-node-paths only ever wraps element()/
+       document-node() items), with the location line
+       (zxd:render-node-ref-path-text's sibling for this wrapper shape)
+       as a leading 'value' token, mirroring zxd:render-node-ref-tokens's
+       own shape. A distinct kind from "node-ref" on purpose - this is a
+       plain node shown with its location, not a resolved reference,
+       even though a consumer's default styling may reasonably treat the
+       two the same. -->
+  <xsl:function name="zxd:render-path-wrapped-tokens" as="element(xdm:group)">
+    <xsl:param name="mapEl" as="element(xdm:map)"/>
+    <xsl:variable name="pathEntry" as="element(xdm:entry)" select="$mapEl/xdm:entry[zxd:is-reserved-node-path-key(., $zxd:NODE-PATH-KEY)]"/>
+    <xsl:variable name="valueEntry" as="element(xdm:entry)" select="$mapEl/xdm:entry[zxd:is-reserved-node-path-key(., $zxd:NODE-VALUE-KEY)]"/>
+    <xsl:variable name="pathLine" as="xs:string" select="string($pathEntry/xdm:item[1]/xdm:atomic[1])"/>
+    <xdm:group kind="node-path" foldable="false">
+      <!-- 'punct', not 'value' - see zxd:render-node-ref-tokens's own
+           comment on this same choice, which this mirrors. -->
+      <xsl:sequence select="zxd:token('punct', $pathLine)"/>
+      <xsl:sequence select="zxd:render-item-seq-tokens($valueEntry/xdm:item)"/>
     </xdm:group>
   </xsl:function>
 

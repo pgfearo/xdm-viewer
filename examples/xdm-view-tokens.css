@@ -100,6 +100,22 @@ group[collapsed="true"] > .xdm-fold-body {
   display: none;
 }
 
+/* group[kind="node-path"|"node-ref"]'s first child is the location
+   annotation (xdm:path()'s own step-label text, or the resolved '#N
+   path' for a real reference) - put it on its own line, ahead of the
+   node's own markup that follows, matching how xdm-view-text.xsl always
+   places this line above the node's rendering rather than run into it.
+   :first-child is a structural pseudo-class (computed from tree
+   position, not from any attribute), so - unlike a class selector -
+   it isn't affected by the class-selector/namespace pitfall noted
+   above; confirmed empirically against these xdm: elements the same way
+   that pitfall was. */
+group[kind="node-path"] > token:first-child,
+group[kind="node-ref"] > token:first-child {
+  display: block;
+  opacity: 0.7;
+}
+
 /* One row (map entry / array member / sequence item) per line, indented
    one step further than its own container - see xdm-view-tokens.xsl's
    header comment for why this is a plain CSS display switch rather than

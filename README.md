@@ -169,6 +169,21 @@ consumer rather than baked into any token.
 `xdm:persisted-to-token-view($doc)` and `xdm:view-tokens-with-refs($value)`
 mirror the equivalent text/HTML functions the same way throughout.
 
+`xdm:view-tokens` (only - not `xdm:persisted-to-token-view`, and not
+needed by `xdm:view-tokens-with-refs`, which already shows this via
+`kind="node-ref"`) also shows every node value's own `xdm:path()`
+location, the same information `xdm:debug` already shows for node
+values, just without `xdm:debug`'s pruning - the tokens view always
+shows a node's full rendering. It appears as a `kind="node-path"` group
+wrapping a leading `type="punct"` location token (uncolored, like
+`kind="node-ref"`'s own location line, so it reads as a quiet annotation
+rather than part of the value) followed by the node's own tokens. This
+only works from `xdm:view-tokens`'s value-level entry point, since the
+path has to be computed on the *original* live node before
+`xdm:to-document()` ever copies it into the persisted tree - recomputing
+it afterwards would reflect the copy's position inside that tree, not
+the node's real location.
+
 A worked, runnable example of consuming this — colorized, foldable
 rendering in a plain browser page, with real CSS and a small amount of
 vanilla JS — lives in `examples/xdm-view-tokens.css`/`examples/

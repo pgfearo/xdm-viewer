@@ -10,9 +10,10 @@
        as the expected <xdm:token>/<xdm:group> tree: correct token types
        and text, foldable computed the same way xdm-view-text.xsl's own
        layout decision would (true only for a container that would have
-       gone multi-line as plain text), and each entry/member/item wrapped
-       in its own kind="entry" group with a trailing comma exactly when
-       it isn't the last one.
+       gone multi-line as plain text), each entry/member/item wrapped in
+       its own kind="entry" group with a trailing comma exactly when it
+       isn't the last one, and every node value (here, 'bio') wrapped in
+       a kind="node-path" group showing its xdm:path() location.
   -->
 
   <xsl:import href="../src/xdm-view.xsl"/>
@@ -50,6 +51,12 @@
     <xsl:variable name="bioToken" as="element(xdm:token)?" select="$root//xdm:token[@type = 'value' and contains(., '&lt;p&gt;hello&lt;/p&gt;')]"/>
     <xsl:variable name="emptyToken" as="element(xdm:token)?" select="$root//xdm:token[@type = 'punct' and . = '()']"/>
 
+    <!-- $bio is a parentless element (declared standalone, not read from
+         a document), so xdm:path() on it is just its own step label -
+         see xdm-view-common.xsl's xdm:path. -->
+    <xsl:variable name="bioPathGroup" as="element(xdm:group)?" select="$root//xdm:group[@kind = 'node-path']"/>
+    <xsl:variable name="bioPathToken" as="element(xdm:token)?" select="$bioPathGroup/xdm:token[1][@type = 'punct' and . = '/p']"/>
+
     <!-- Every entry but the last ends with its own trailing ', ' punct
          token, so the comma lands inside the entry a consumer's CSS
          would put on one line - not as a separate sibling that would
@@ -72,6 +79,9 @@
       exists($tagsArray), $tagsArray/@foldable = 'false',
       $tagsStrings = ('''a''', '''b'''),
       exists($bioToken),
+      exists($bioPathGroup), $bioPathGroup/@foldable = 'false',
+      exists($bioPathToken),
+      exists($bioPathGroup/xdm:token[2][@type = 'value' and contains(., '&lt;p&gt;hello&lt;/p&gt;')]),
       exists($emptyToken)
     )"/>
 

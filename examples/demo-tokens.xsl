@@ -58,6 +58,7 @@
       'tags': [ 'mathematician', 'writer', (1,2,3), (4,5,6), [10,9,[1,2]] ],
       'scores': (7, 9, 10),
       'profile': $profile,
+      'profile2': $profile[last()]/*,
       'active': true(),
       'note': ()
     }"/>
