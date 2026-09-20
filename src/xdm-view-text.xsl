@@ -817,11 +817,12 @@
   </xsl:function>
 
   <!-- A real (element/document) node has no compact XPath-literal form. A
-       leaf-like node (no descendant elements) is shown as truncated,
-       single-line markup; one with descendant elements is pretty-printed
-       with conventional XML indentation instead, aligned to the current
-       nesting level - truncating nested markup to a fixed length would
-       just cut it apart awkwardly.
+       leaf-like node (no descendant elements) is shown as single-line
+       markup; one with descendant elements is pretty-printed with
+       conventional XML indentation instead, aligned to the current
+       nesting level. Neither branch truncates - a long single line is
+       left for the terminal/consumer to wrap, same as any other long
+       line this project produces.
 
        A zxd:path attribute on $node means it was husked for xdm:debug
        (zxd:husk-node) - shown as an uncolored location line above the
