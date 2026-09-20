@@ -254,7 +254,7 @@
     </xsl:choose>
   </xsl:function>
 
-  <xsl:function name="zxd:render-atomic-tokens" as="element(xdm:token)">
+  <xsl:function name="zxd:render-atomic-tokens" as="element(xdm:token)+">
     <xsl:param name="el" as="element(xdm:atomic)"/>
     <xsl:variable name="type" as="xs:string" select="$el/@type"/>
     <xsl:variable name="lexical" as="xs:string" select="string($el)"/>
@@ -274,11 +274,15 @@
           zxd:token('value', (if (string-length($uri) gt 0) then 'Q{' || $uri || '}' else '') || $lexical)"/>
       </xsl:when>
       <xsl:otherwise>
-        <!-- Unlike zxd:render-atomic-text (which colors the lexical value
-             and leaves the '(type)' annotation in the default color as a
-             quieter aside), a token can only carry one type - the whole
-             "lexical (type)" text is a single 'value' token here. -->
-        <xsl:sequence select="zxd:token('value', $lexical || ' (' || $type || ')')"/>
+        <!-- Two tokens, not one merged into the other: 'value' for the
+             lexical value itself, 'punct' for the '(type)' annotation -
+             matching zxd:render-atomic-text's own choice to leave this
+             annotation in the default/uncolored foreground while the
+             value itself is colored, the same reuse-punct-for-"plain
+             text" convention this file's node-path/node-ref location
+             lines already use. -->
+        <xsl:sequence select="zxd:token('value', $lexical)"/>
+        <xsl:sequence select="zxd:token('punct', ' (' || $type || ')')"/>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:function>

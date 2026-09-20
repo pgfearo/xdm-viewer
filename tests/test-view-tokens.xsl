@@ -16,7 +16,9 @@
        kind="node-path" group showing its xdm:path() location, and (via
        'rich') that $minimize=true shrinks a node value the same way
        xdm:debug's own pruning does (zxd:prune-node, reused directly),
-       while $minimize=false (the default) leaves it in full.
+       while $minimize=false (the default) leaves it in full, and (via
+       'born') that a fallback atomic's '(type)' annotation is its own
+       trailing 'punct' token, not merged into the value's own token.
   -->
 
   <xsl:import href="../src/xdm-view.xsl"/>
@@ -44,6 +46,7 @@
       'tags': array { 'a', 'b' },
       'bio': $bio,
       'rich': $rich,
+      'born': xs:date('1815-12-10'),
       'empty': ()
     }"/>
 
@@ -65,6 +68,14 @@
 
     <xsl:variable name="bioToken" as="element(xdm:token)?" select="$root//xdm:token[@type = 'value' and contains(., '&lt;p&gt;hello&lt;/p&gt;')]"/>
     <xsl:variable name="emptyToken" as="element(xdm:token)?" select="$root//xdm:token[@type = 'punct' and . = '()']"/>
+
+    <!-- The fallback-atomic branch (xs:date has no dedicated type of its
+         own) splits into two separate tokens - 'value' for the lexical
+         value, 'punct' for the '(type)' annotation - rather than one
+         merged token, so a consumer's CSS can leave the annotation
+         uncolored while the value itself is colored. -->
+    <xsl:variable name="dateValueToken" as="element(xdm:token)?" select="$root//xdm:token[@type = 'value' and . = '1815-12-10']"/>
+    <xsl:variable name="dateTypeToken" as="element(xdm:token)?" select="$root//xdm:token[@type = 'punct' and . = ' (xs:date)']"/>
 
     <!-- $bio is a parentless element (declared standalone, not read from
          a document), so xdm:path() on it is just its own step label -
@@ -93,7 +104,7 @@
     <xsl:variable name="checks" as="xs:boolean*" select="(
       $root/@kind = 'map',
       $root/@foldable = 'true',
-      count($entries) = 7,
+      count($entries) = 8,
       every $e in $entries satisfies ($e/@kind = 'entry' and $e/@foldable = 'false'),
       $nonLastEntriesHaveTrailingComma,
       $lastEntryHasNoTrailingComma,
@@ -107,6 +118,8 @@
       exists($bioPathToken),
       exists($bioPathGroup/xdm:token[2][@type = 'value' and contains(., '&lt;p&gt;hello&lt;/p&gt;')]),
       exists($emptyToken),
+      exists($dateValueToken), exists($dateTypeToken),
+      $dateTypeToken/preceding-sibling::*[1] is $dateValueToken,
       exists($root//xdm:token[@type = 'value' and contains(., 'deeply nested detail text')]),
       not(exists($minimizedRoot//xdm:token[@type = 'value' and contains(., 'deeply nested detail')])),
       exists($minimizedRoot//xdm:token[@type = 'value' and contains(., '&#x2026;')]),
