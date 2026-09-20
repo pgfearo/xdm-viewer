@@ -12,8 +12,11 @@
        layout decision would (true only for a container that would have
        gone multi-line as plain text), each entry/member/item wrapped in
        its own kind="entry" group with a trailing comma exactly when it
-       isn't the last one, and every node value (here, 'bio') wrapped in
-       a kind="node-path" group showing its xdm:path() location.
+       isn't the last one, every node value (here, 'bio') wrapped in a
+       kind="node-path" group showing its xdm:path() location, and (via
+       'rich') that $minimize=true shrinks a node value the same way
+       xdm:debug's own pruning does (zxd:prune-node, reused directly),
+       while $minimize=false (the default) leaves it in full.
   -->
 
   <xsl:import href="../src/xdm-view.xsl"/>
@@ -22,6 +25,17 @@
 
   <xsl:variable name="bio" as="element()"><p>hello</p></xsl:variable>
 
+  <!-- Deep enough (a grandchild) and long enough (over 40 chars of
+       text) to make zxd:prune-node's shrink visible: minimized, the
+       <detail> grandchild and the full <name> text should both be
+       gone, replaced by a '…' marker; unminimized, both survive. -->
+  <xsl:variable name="rich" as="element()">
+    <item sku="A1">
+      <name>Widget with a really quite long descriptive name</name>
+      <description><detail>deeply nested detail text</detail></description>
+    </item>
+  </xsl:variable>
+
   <xsl:variable name="value" as="item()*" select="
     map {
       'name': 'Ada',
@@ -29,6 +43,7 @@
       'scores': (1, 2, 3),
       'tags': array { 'a', 'b' },
       'bio': $bio,
+      'rich': $rich,
       'empty': ()
     }"/>
 
@@ -54,7 +69,8 @@
     <!-- $bio is a parentless element (declared standalone, not read from
          a document), so xdm:path() on it is just its own step label -
          see xdm-view-common.xsl's xdm:path. -->
-    <xsl:variable name="bioPathGroup" as="element(xdm:group)?" select="$root//xdm:group[@kind = 'node-path']"/>
+    <xsl:variable name="bioPathGroup" as="element(xdm:group)?" select="
+      $root//xdm:group[@kind = 'node-path'][xdm:token[1] = '/p']"/>
     <xsl:variable name="bioPathToken" as="element(xdm:token)?" select="$bioPathGroup/xdm:token[1][@type = 'punct' and . = '/p']"/>
 
     <!-- Every entry but the last ends with its own trailing ', ' punct
@@ -66,10 +82,18 @@
     <xsl:variable name="lastEntryHasNoTrailingComma" as="xs:boolean" select="
       not($entries[last()]/*[last()][self::xdm:token][@type = 'punct'][. = ', '])"/>
 
+    <!-- $minimize=true should reuse zxd:prune-node exactly like
+         xdm:debug does: the <detail> grandchild and the full <name>
+         text both disappear, a '…' marker shows up in their place, and
+         (unaffected by $minimize either way) 'rich' still gets its own
+         kind="node-path" location. -->
+    <xsl:variable name="minimizedTokens" as="element()*" select="xdm:view-tokens($value, true())"/>
+    <xsl:variable name="minimizedRoot" as="element(xdm:group)" select="$minimizedTokens[1]"/>
+
     <xsl:variable name="checks" as="xs:boolean*" select="(
       $root/@kind = 'map',
       $root/@foldable = 'true',
-      count($entries) = 6,
+      count($entries) = 7,
       every $e in $entries satisfies ($e/@kind = 'entry' and $e/@foldable = 'false'),
       $nonLastEntriesHaveTrailingComma,
       $lastEntryHasNoTrailingComma,
@@ -82,7 +106,11 @@
       exists($bioPathGroup), $bioPathGroup/@foldable = 'false',
       exists($bioPathToken),
       exists($bioPathGroup/xdm:token[2][@type = 'value' and contains(., '&lt;p&gt;hello&lt;/p&gt;')]),
-      exists($emptyToken)
+      exists($emptyToken),
+      exists($root//xdm:token[@type = 'value' and contains(., 'deeply nested detail text')]),
+      not(exists($minimizedRoot//xdm:token[@type = 'value' and contains(., 'deeply nested detail')])),
+      exists($minimizedRoot//xdm:token[@type = 'value' and contains(., '&#x2026;')]),
+      exists($minimizedRoot//xdm:group[@kind = 'node-path']/xdm:token[1][@type = 'punct' and . = '/item'])
     )"/>
 
     <xsl:choose>

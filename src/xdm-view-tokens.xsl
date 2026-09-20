@@ -74,33 +74,53 @@
        copy's position inside the persisted xdm: tree, not the node's
        real location, so this can only be offered from the value-level
        entry point, never from a document already persisted separately.
-  -->
+
+       $minimize (default false, via the 1-arg overload below) reuses
+       xdm:debug's own node-shrinking - zxd:prune-node, extracted from
+       zxd:husk-node so it carries no path-attribute wiring of its own -
+       for every element()/document-node() value, the same "own
+       attributes/text plus direct children's tags/attributes/first text,
+       nothing deeper" shrink xdm:debug applies, with a trailing '…' where
+       something was cut. It's the same shrink, not a smaller version of
+       it - large or deeply-nested node values are exactly as much of a
+       problem for a tokens consumer as for an xsl:message call, and
+       there was no reason to invent a second way to bound them. The
+       location this file always shows for a node value (kind="node-path"
+       above) is unaffected either way - $minimize only changes whether
+       the node's own markup, not its location, is shrunk. -->
+  <xsl:function name="xdm:view-tokens" as="element()*">
+    <xsl:param name="value" as="item()*"/>
+    <xsl:sequence select="xdm:view-tokens($value, false())"/>
+  </xsl:function>
 
   <xsl:function name="xdm:view-tokens" as="element()*">
     <xsl:param name="value" as="item()*"/>
-    <xsl:sequence select="xdm:persisted-to-token-view(xdm:to-document(zxd:with-node-paths($value)))"/>
+    <xsl:param name="minimize" as="xs:boolean"/>
+    <xsl:sequence select="xdm:persisted-to-token-view(xdm:to-document(zxd:with-node-paths($value, $minimize)))"/>
   </xsl:function>
 
   <!-- Deep-walks $value (through maps, arrays, and sequences - mirroring
        zxd:husk-value's own traversal) and wraps every element()/
        document-node() item with its xdm:path() location, computed here
        while it's still the real, live node (see this file's header
-       comment). Unlike zxd:husk-value, the node itself is passed through
-       completely unchanged - no pruning, no truncation - and every other
-       item kind (atomics, maps, arrays, attributes, text, ...) is left
-       alone entirely; xdm:debug's reasons for widening this to those
-       other kinds are specific to fitting a value into one debug-message
-       line, which doesn't apply here. -->
+       comment) - and, when $minimize is true, with zxd:prune-node's
+       shrunk copy standing in for the node itself rather than the node
+       unchanged. Every other item kind (atomics, maps, arrays,
+       attributes, text, ...) is left alone entirely regardless of
+       $minimize; xdm:debug's reasons for widening its own equivalent
+       traversal to those other kinds are specific to fitting a value
+       into one debug-message line, which doesn't apply here. -->
   <xsl:function name="zxd:with-node-paths" as="item()*">
     <xsl:param name="value" as="item()*"/>
+    <xsl:param name="minimize" as="xs:boolean"/>
     <xsl:sequence select="
       for $item in $value return
         if ($item instance of element() or $item instance of document-node())
-        then zxd:with-node-path($item, $item)
+        then zxd:with-node-path($item, if ($minimize) then zxd:prune-node($item) else $item)
         else if ($item instance of map(*)) then
-          map:merge(for $k in map:keys($item) return map:entry($k, zxd:with-node-paths($item($k))))
+          map:merge(for $k in map:keys($item) return map:entry($k, zxd:with-node-paths($item($k), $minimize)))
         else if ($item instance of array(*)) then
-          array:for-each($item, function($x as item()*) as item()* { zxd:with-node-paths($x) })
+          array:for-each($item, function($x as item()*) as item()* { zxd:with-node-paths($x, $minimize) })
         else $item"/>
   </xsl:function>
 

@@ -42,7 +42,7 @@ github/
 |---|---|
 | `src/xdm-view-text.xsl` | `xdm:view-text($value, $useColor?)`<br>`xdm:persisted-to-text-view($doc, $useColor?)` |
 | `src/xdm-view-html.xsl` | `xdm:view-html($value)`<br>`xdm:persisted-to-html-view($doc)`<br>`xdm:view-html-fragment($value)`<br>`xdm:persisted-to-html-fragment($doc)` |
-| `src/xdm-view-tokens.xsl` | `xdm:view-tokens($value)`<br>`xdm:persisted-to-token-view($doc)` |
+| `src/xdm-view-tokens.xsl` | `xdm:view-tokens($value, $minimize?)`<br>`xdm:persisted-to-token-view($doc)` |
 | `src/xdm-view-common.xsl` | `xdm:path($node)`<br>plus other helpers shared by all three renderers |
 | `src/xdm-view.xsl` | Single entry point — imports all four of the above |
 
@@ -173,16 +173,29 @@ mirror the equivalent text/HTML functions the same way throughout.
 needed by `xdm:view-tokens-with-refs`, which already shows this via
 `kind="node-ref"`) also shows every node value's own `xdm:path()`
 location, the same information `xdm:debug` already shows for node
-values, just without `xdm:debug`'s pruning - the tokens view always
-shows a node's full rendering. It appears as a `kind="node-path"` group
-wrapping a leading `type="punct"` location token (uncolored, like
-`kind="node-ref"`'s own location line, so it reads as a quiet annotation
-rather than part of the value) followed by the node's own tokens. This
-only works from `xdm:view-tokens`'s value-level entry point, since the
-path has to be computed on the *original* live node before
-`xdm:to-document()` ever copies it into the persisted tree - recomputing
-it afterwards would reflect the copy's position inside that tree, not
-the node's real location.
+values. It appears as a `kind="node-path"` group wrapping a leading
+`type="punct"` location token (uncolored, like `kind="node-ref"`'s own
+location line, so it reads as a quiet annotation rather than part of the
+value) followed by the node's own tokens. This only works from
+`xdm:view-tokens`'s value-level entry point, since the path has to be
+computed on the *original* live node before `xdm:to-document()` ever
+copies it into the persisted tree - recomputing it afterwards would
+reflect the copy's position inside that tree, not the node's real
+location.
+
+By default (`xdm:view-tokens($value)`, or explicitly
+`xdm:view-tokens($value, false())`) a node value's own rendering is shown
+in full, same as `xdm:view-text`/`xdm:view-html`. Passing `true()` as a
+second argument - `xdm:view-tokens($value, true())` - shrinks every node
+value the same way `xdm:debug` already does (`zxd:prune-node`, the exact
+same function, not a reimplementation): the node keeps its own
+attributes and its own immediate text (normalized and truncated at
+`$xdm:DEBUG-PRUNE-TEXT-MAX-LENGTH`, 40 characters by default), and its
+direct child elements keep their own attributes and *their* first
+immediate text child, truncated the same way - nothing past that, with a
+`…` marker anywhere something was cut. The location this file always
+shows for a node value is unaffected either way - `$minimize` only
+shrinks the node's own markup, never its `kind="node-path"` annotation.
 
 A worked, runnable example of consuming this — colorized, foldable
 rendering in a plain browser page, with real CSS and a small amount of

@@ -401,31 +401,26 @@
        truncated via zxd:truncate-text), and its direct child elements
        with their own attributes and *their* first immediate text-node
        child (normalized and truncated the same way) - nothing past
-       that; a document node
-       recurses into its child element the same way. Location is
-       computed via xdm:path() on the *original* node, before the
-       shallow copy loses its ancestor context, and travels along as a
-       zxd:path attribute on the husked element - zxd:render-node-text
-       knows to pull it back out as a location line and strip it so it
-       never displays as a fake extra attribute of the real content.
-       Only ever called (via zxd:husk-value) on element()/
-       document-node() items - the "otherwise" branch's own $node is
-       therefore always an element(). -->
-  <xsl:function name="zxd:husk-node" as="node()">
+       that; a document node recurses into its child element the same
+       way. Carries no location of its own - that's zxd:husk-node's job,
+       layered on top - so this is the piece xdm-view-tokens.xsl's own
+       $minimize option can reuse directly, without also taking on
+       zxd:husk-node's path-attribute wiring, which it doesn't need (it
+       has its own, separate path-token mechanism - see its
+       zxd:with-node-paths). -->
+  <xsl:function name="zxd:prune-node" as="node()">
     <xsl:param name="node" as="node()"/>
     <xsl:choose>
       <xsl:when test="$node instance of document-node()">
         <xsl:document>
           <xsl:for-each select="$node/node()">
-            <xsl:sequence select="if (. instance of element()) then zxd:husk-node(.) else ."/>
+            <xsl:sequence select="if (. instance of element()) then zxd:prune-node(.) else ."/>
           </xsl:for-each>
         </xsl:document>
       </xsl:when>
       <xsl:otherwise>
-        <xsl:variable name="path" as="xs:string" select="xdm:path($node)"/>
         <xsl:for-each select="$node">
           <xsl:copy copy-namespaces="no">
-            <xsl:attribute name="zxd:path" select="$path"/>
             <xsl:sequence select="@*"/>
             <xsl:for-each select="node()">
               <xsl:choose>
@@ -458,6 +453,38 @@
                 </xsl:when>
               </xsl:choose>
             </xsl:for-each>
+          </xsl:copy>
+        </xsl:for-each>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:function>
+
+  <!-- Layers a zxd:path attribute (location computed via xdm:path() on
+       the *original* node, before zxd:prune-node's shallow copy loses
+       its ancestor context) on top of zxd:prune-node's own shrinking -
+       zxd:render-node-text knows to pull the attribute back out as a
+       location line and strip it so it never displays as a fake extra
+       attribute of the real content. Only ever called (via
+       zxd:husk-value) on element()/document-node() items - the
+       "otherwise" branch's own $node is therefore always an
+       element(). -->
+  <xsl:function name="zxd:husk-node" as="node()">
+    <xsl:param name="node" as="node()"/>
+    <xsl:choose>
+      <xsl:when test="$node instance of document-node()">
+        <xsl:document>
+          <xsl:for-each select="$node/node()">
+            <xsl:sequence select="if (. instance of element()) then zxd:husk-node(.) else ."/>
+          </xsl:for-each>
+        </xsl:document>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:variable name="path" as="xs:string" select="xdm:path($node)"/>
+        <xsl:for-each select="zxd:prune-node($node)">
+          <xsl:copy copy-namespaces="no">
+            <xsl:attribute name="zxd:path" select="$path"/>
+            <xsl:sequence select="@*"/>
+            <xsl:sequence select="node()"/>
           </xsl:copy>
         </xsl:for-each>
       </xsl:otherwise>
