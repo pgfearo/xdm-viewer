@@ -2,10 +2,16 @@
 
 Renders an XPath 3.1 Data Model value — nodes, maps, arrays, and atomic
 values, in any combination or nesting — as legible output for a human, in
-either of two forms:
+any of three forms:
 
 - JSON-like text (`{'a': 1, 'b': (2, 3)}`), optionally ANSI-coloured
 - a browsable HTML page with collapsible maps/arrays
+- a tree of typed `<xdm:token>`/`<xdm:group>` elements — the same shape as
+  the text form, but with every fragment's kind (string, number, boolean,
+  map key, plain punctuation, ...) already classified on it, and each
+  container marked whether it would have gone multi-line, for a consumer
+  (e.g. a custom syntax-highlighting UI) that wants to colour/fold the
+  value itself without re-parsing rendered text
 
 ## Background
 
@@ -36,8 +42,9 @@ github/
 |---|---|
 | `src/xdm-view-text.xsl` | `xdm:view-text($value, $useColor?)`<br>`xdm:persisted-to-text-view($doc, $useColor?)` |
 | `src/xdm-view-html.xsl` | `xdm:view-html($value)`<br>`xdm:persisted-to-html-view($doc)`<br>`xdm:view-html-fragment($value)`<br>`xdm:persisted-to-html-fragment($doc)` |
-| `src/xdm-view-common.xsl` | `xdm:path($node)`<br>plus other helpers shared by both renderers |
-| `src/xdm-view.xsl` | Single entry point — imports all three of the above |
+| `src/xdm-view-tokens.xsl` | `xdm:view-tokens($value)`<br>`xdm:persisted-to-token-view($doc)` |
+| `src/xdm-view-common.xsl` | `xdm:path($node)`<br>plus other helpers shared by all three renderers |
+| `src/xdm-view.xsl` | Single entry point — imports all four of the above |
 
 *Import `xdm-view.xsl` rather than the individual renderer files as they have shared xsl import dependencies*
 
@@ -91,6 +98,62 @@ variants, which return just the rendered content (no `<html>`/`<head>`/
 
 `xdm:stylesheet-text()` returns this project's own CSS as a string, if you
 want to reuse it rather than write your own.
+
+### Tokenized output
+
+For a consumer that wants to render the value itself — e.g. colouring it
+like source code in an editor-style UI — `xdm:view-tokens($value)` returns
+the same value as a tree of `<xdm:token>`/`<xdm:group>` elements instead of
+a string, so the consumer never has to re-parse rendered text back into its
+parts (which is inherently ambiguous — e.g. a quote character that's part
+of a string value's own content, not a delimiter):
+
+```xml
+<xsl:sequence select="xdm:view-tokens($value)"/>
+```
+
+```xml
+<xdm:group kind="map" foldable="false">
+  <xdm:token type="punct">{</xdm:token>
+  <xdm:token type="name">'a'</xdm:token>
+  <xdm:token type="punct">: </xdm:token>
+  <xdm:token type="number">1</xdm:token>
+  <xdm:token type="punct">, </xdm:token>
+  <xdm:token type="name">'b'</xdm:token>
+  <xdm:token type="punct">: </xdm:token>
+  <xdm:group kind="sequence" foldable="false">
+    <xdm:token type="punct">(</xdm:token>
+    <xdm:token type="number">2</xdm:token>
+    <xdm:token type="punct">, </xdm:token>
+    <xdm:token type="number">3</xdm:token>
+    <xdm:token type="punct">)</xdm:token>
+  </xdm:group>
+  <xdm:token type="punct">}</xdm:token>
+</xdm:group>
+```
+
+A `<xdm:token>`'s `type` is one of `string`, `number`, `boolean`, `name`
+(a map key) or `value` (anything else — a QName, a node's own markup, a
+comment, ...), deliberately the same names as VS Code's own
+`debugTokenExpression.*` theme colors, so a VS Code-hosted consumer can map
+`type` straight onto the matching `--vscode-debugTokenExpression-<type>`
+CSS variable with no translation table of its own. `punct` (brackets,
+commas, colons) has no such counterpart and is meant to stay in the
+default foreground, same as the Debug Console leaves its own punctuation
+uncoloured.
+
+A `<xdm:group>`'s `kind` is `map`, `array`, `sequence` (2+ top-level or
+nested items), `node-ref`, `attribute` or `namespace`. Only `map`/`array`/
+`sequence` ever set `foldable="true"` — exactly when this project's own
+text rendering would have spread that container over multiple lines rather
+than inlining it on one, so the tokenized and plain-text forms of the same
+value never disagree about which containers are "big enough to matter".
+Layout itself (indentation, where line breaks fall) is deliberately left
+to the consumer rather than baked into any token — a `<xdm:group>` only
+says whether *it* is foldable, not how to arrange its children on screen.
+
+`xdm:persisted-to-token-view($doc)` and `xdm:view-tokens-with-refs($value)`
+mirror the equivalent text/HTML functions the same way throughout.
 
 ## XDM print debugging
 
