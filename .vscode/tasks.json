@@ -37,5 +37,23 @@
 				"$saxon-xslt"
 			]
 		},
+		{
+			"type": "xslt",
+			"label": "run xdm-tokens example",
+			"saxonJar": "${config:XSLT.tasks.saxonJar}",
+			"xsltFile": "${workspaceFolder}/examples/demo-tokens.xsl",
+			"xmlSource": "${workspaceFolder}/examples/demo-tokens.xsl",
+			"initialTemplate": "",
+			"resultPath": "${workspaceFolder}/examples/out/empty.xml",
+			"allowSyntaxExtensions40": "off",
+			"parameters": [{"name": "mode", "value": "write"}],
+			"messageEscaping": "adaptive",
+			"group": {
+				"kind": "build"
+			},
+			"problemMatcher": [
+				"$saxon-xslt"
+			]
+		},
 	]
 }

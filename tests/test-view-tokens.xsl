@@ -8,9 +8,11 @@
   <!--
        Checks that xdm:view-tokens renders a map/array/sequence/node value
        as the expected <xdm:token>/<xdm:group> tree: correct token types
-       and text, and foldable computed the same way xdm-view-text.xsl's
-       own layout decision would (true only for a container that would
-       have gone multi-line as plain text).
+       and text, foldable computed the same way xdm-view-text.xsl's own
+       layout decision would (true only for a container that would have
+       gone multi-line as plain text), and each entry/member/item wrapped
+       in its own kind="entry" group with a trailing comma exactly when
+       it isn't the last one.
   -->
 
   <xsl:import href="../src/xdm-view.xsl"/>
@@ -33,22 +35,37 @@
     <xsl:variable name="tokens" as="element()*" select="xdm:view-tokens($value)"/>
     <xsl:variable name="root" as="element(xdm:group)" select="$tokens[1]"/>
 
-    <xsl:variable name="nameToken" as="element(xdm:token)?" select="$root/xdm:token[@type = 'name' and . = '''name''']"/>
-    <xsl:variable name="stringToken" as="element(xdm:token)?" select="$root/xdm:token[@type = 'string' and . = '''Ada''']"/>
-    <xsl:variable name="booleanToken" as="element(xdm:token)?" select="$root/xdm:token[@type = 'boolean' and . = 'true()']"/>
+    <xsl:variable name="entries" as="element(xdm:group)*" select="$root/xdm:group[@kind = 'entry']"/>
 
-    <xsl:variable name="scoresSeq" as="element(xdm:group)?" select="$root/xdm:group[@kind = 'sequence']"/>
-    <xsl:variable name="scoresNumbers" as="xs:string*" select="$scoresSeq/xdm:token[@type = 'number']/string(.)"/>
+    <xsl:variable name="nameToken" as="element(xdm:token)?" select="$root//xdm:token[@type = 'name' and . = '''name''']"/>
+    <xsl:variable name="stringToken" as="element(xdm:token)?" select="$root//xdm:token[@type = 'string' and . = '''Ada''']"/>
+    <xsl:variable name="booleanToken" as="element(xdm:token)?" select="$root//xdm:token[@type = 'boolean' and . = 'true()']"/>
 
-    <xsl:variable name="tagsArray" as="element(xdm:group)?" select="$root/xdm:group[@kind = 'array']"/>
-    <xsl:variable name="tagsStrings" as="xs:string*" select="$tagsArray/xdm:token[@type = 'string']/string(.)"/>
+    <xsl:variable name="scoresSeq" as="element(xdm:group)?" select="$root//xdm:group[@kind = 'sequence']"/>
+    <xsl:variable name="scoresNumbers" as="xs:string*" select="$scoresSeq//xdm:token[@type = 'number']/string(.)"/>
 
-    <xsl:variable name="bioToken" as="element(xdm:token)?" select="$root/xdm:token[@type = 'value' and contains(., '&lt;p&gt;hello&lt;/p&gt;')]"/>
-    <xsl:variable name="emptyToken" as="element(xdm:token)?" select="$root/xdm:token[@type = 'punct' and . = '()']"/>
+    <xsl:variable name="tagsArray" as="element(xdm:group)?" select="$root//xdm:group[@kind = 'array']"/>
+    <xsl:variable name="tagsStrings" as="xs:string*" select="$tagsArray//xdm:token[@type = 'string']/string(.)"/>
+
+    <xsl:variable name="bioToken" as="element(xdm:token)?" select="$root//xdm:token[@type = 'value' and contains(., '&lt;p&gt;hello&lt;/p&gt;')]"/>
+    <xsl:variable name="emptyToken" as="element(xdm:token)?" select="$root//xdm:token[@type = 'punct' and . = '()']"/>
+
+    <!-- Every entry but the last ends with its own trailing ', ' punct
+         token, so the comma lands inside the entry a consumer's CSS
+         would put on one line - not as a separate sibling that would
+         strand itself on a line of its own once entries go block. -->
+    <xsl:variable name="nonLastEntriesHaveTrailingComma" as="xs:boolean" select="
+      every $e in $entries[position() ne last()] satisfies ($e/*[last()][self::xdm:token][@type = 'punct'][. = ', '])"/>
+    <xsl:variable name="lastEntryHasNoTrailingComma" as="xs:boolean" select="
+      not($entries[last()]/*[last()][self::xdm:token][@type = 'punct'][. = ', '])"/>
 
     <xsl:variable name="checks" as="xs:boolean*" select="(
       $root/@kind = 'map',
       $root/@foldable = 'true',
+      count($entries) = 6,
+      every $e in $entries satisfies ($e/@kind = 'entry' and $e/@foldable = 'false'),
+      $nonLastEntriesHaveTrailingComma,
+      $lastEntryHasNoTrailingComma,
       exists($nameToken), exists($stringToken), exists($booleanToken),
       exists($scoresSeq), $scoresSeq/@foldable = 'false',
       $scoresNumbers = ('1', '2', '3'),

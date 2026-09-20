@@ -113,20 +113,28 @@ of a string value's own content, not a delimiter):
 ```
 
 ```xml
-<xdm:group kind="map" foldable="false">
+<xdm:group kind="map" foldable="true">
   <xdm:token type="punct">{</xdm:token>
-  <xdm:token type="name">'a'</xdm:token>
-  <xdm:token type="punct">: </xdm:token>
-  <xdm:token type="number">1</xdm:token>
-  <xdm:token type="punct">, </xdm:token>
-  <xdm:token type="name">'b'</xdm:token>
-  <xdm:token type="punct">: </xdm:token>
-  <xdm:group kind="sequence" foldable="false">
-    <xdm:token type="punct">(</xdm:token>
-    <xdm:token type="number">2</xdm:token>
+  <xdm:group kind="entry" foldable="false">
+    <xdm:token type="name">'a'</xdm:token>
+    <xdm:token type="punct">: </xdm:token>
+    <xdm:token type="number">1</xdm:token>
     <xdm:token type="punct">, </xdm:token>
-    <xdm:token type="number">3</xdm:token>
-    <xdm:token type="punct">)</xdm:token>
+  </xdm:group>
+  <xdm:group kind="entry" foldable="false">
+    <xdm:token type="name">'b'</xdm:token>
+    <xdm:token type="punct">: </xdm:token>
+    <xdm:group kind="sequence" foldable="false">
+      <xdm:token type="punct">(</xdm:token>
+      <xdm:group kind="entry" foldable="false">
+        <xdm:token type="number">2</xdm:token>
+        <xdm:token type="punct">, </xdm:token>
+      </xdm:group>
+      <xdm:group kind="entry" foldable="false">
+        <xdm:token type="number">3</xdm:token>
+      </xdm:group>
+      <xdm:token type="punct">)</xdm:token>
+    </xdm:group>
   </xdm:group>
   <xdm:token type="punct">}</xdm:token>
 </xdm:group>
@@ -143,17 +151,36 @@ default foreground, same as the Debug Console leaves its own punctuation
 uncoloured.
 
 A `<xdm:group>`'s `kind` is `map`, `array`, `sequence` (2+ top-level or
-nested items), `node-ref`, `attribute` or `namespace`. Only `map`/`array`/
-`sequence` ever set `foldable="true"` — exactly when this project's own
-text rendering would have spread that container over multiple lines rather
-than inlining it on one, so the tokenized and plain-text forms of the same
-value never disagree about which containers are "big enough to matter".
-Layout itself (indentation, where line breaks fall) is deliberately left
-to the consumer rather than baked into any token — a `<xdm:group>` only
-says whether *it* is foldable, not how to arrange its children on screen.
+nested items), `entry`, `node-ref`, `attribute` or `namespace`. Only
+`map`/`array`/`sequence` ever set `foldable="true"` — exactly when this
+project's own text rendering would have spread that container over
+multiple lines rather than inlining it on one, so the tokenized and
+plain-text forms of the same value never disagree about which containers
+are "big enough to matter". A `kind="entry"` group is never itself
+foldable — it wraps one row (a map entry, array member, or sequence item)
+including its own trailing `, ` when it isn't the last one, purely so a
+consumer's CSS can put each one on its own line (`group[kind="entry"] {
+display: block }`, scoped to an expanded container) without a comma
+stranding itself on a line of its own; nested indentation then falls out
+of the ordinary block box model for free, no depth tracking needed.
+Punctuation and line breaks are otherwise deliberately left to the
+consumer rather than baked into any token.
 
 `xdm:persisted-to-token-view($doc)` and `xdm:view-tokens-with-refs($value)`
 mirror the equivalent text/HTML functions the same way throughout.
+
+A worked, runnable example of consuming this — colorized, foldable
+rendering in a plain browser page, with real CSS and a small amount of
+vanilla JS — lives in `examples/xdm-view-tokens.css`/`examples/
+xdm-view-tokens.js`/`examples/demo-tokens.xsl`. One non-obvious pitfall it
+had to work around: CSS **class** selectors only match the `class`
+attribute for elements in namespaces a browser specifically special-cases
+as HTML-like (HTML, SVG, MathML) - not arbitrary custom namespaces like
+this project's `xdm:` one, even though `classList`/`Element.matches()`
+both misleadingly claim otherwise. Type and attribute selectors
+(`group[kind="entry"]`, `token[type="string"]`, ...) don't have this
+problem, which is why the example uses those exclusively rather than any
+`class` on the `xdm:` elements themselves.
 
 ## XDM print debugging
 

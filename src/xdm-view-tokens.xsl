@@ -34,22 +34,27 @@
        all - unlike every other punct/token boundary here, that text is
        not something a consumer is expected to re-lay-out.
 
-       <xdm:group kind="map|array|sequence|node-ref|attribute|namespace"
-       foldable="true|false">...</xdm:group> is a container - its children
-       are its own opening/closing punct tokens plus whatever it holds, in
-       document order, with no further nesting for fold purposes (an
-       entry's key, colon, and value all sit as direct children, not in
-       their own sub-group) - nothing here asks to fold at any finer grain
-       than one whole map/array/sequence. foldable is true exactly when
-       xdm-view-text.xsl's own layout would have spread this container
-       over multiple lines rather than inlining it on one - the same
-       zxd:is-simple-item-seq decision, reused rather than re-derived, so
-       the tokenized and plain-text renderings never disagree about which
-       containers are "big enough to matter". Punctuation and layout
-       (indentation, line breaks between a foldable container's children)
-       are deliberately not baked into any token's text - that's a
-       consumer/CSS concern, the same way it would be for any other
-       structured-data renderer.
+       <xdm:group kind="map|array|sequence|entry|node-ref|attribute|namespace"
+       foldable="true|false">...</xdm:group> is a container. A map/array's
+       own children (after its opening punct token, before its closing
+       one) are one kind="entry" group per entry/member, each holding
+       that entry's own key/colon/value tokens (or just a value, for an
+       array/sequence) plus its own trailing comma - not because entries
+       fold independently (they don't; only kind="entry" is never itself
+       foldable="true") but so a consumer's CSS can lay each one out on
+       its own line purely by switching its display from inline to block
+       when the parent is expanded, with indentation following for free
+       from the ordinary block box model - nothing here needs to compute
+       or track a nesting depth itself. foldable on a map/array/sequence
+       is true exactly when xdm-view-text.xsl's own layout would have
+       spread that container over multiple lines rather than inlining it
+       on one - the same zxd:is-simple-item-seq decision, reused rather
+       than re-derived, so the tokenized and plain-text renderings never
+       disagree about which containers are "big enough to matter".
+       Punctuation and layout are otherwise deliberately not baked into
+       any token's text - line breaks and indentation are a consumer/CSS
+       concern, the same way they would be for any other structured-data
+       renderer.
   -->
 
   <xsl:function name="xdm:view-tokens" as="element()*">
@@ -86,10 +91,28 @@
     <xsl:sequence select="zxd:token('punct', $text)"/>
   </xsl:function>
 
+  <!-- Wraps $tokens as one kind="entry" group - one row of a map/array/
+       sequence - with its own trailing ', ' when $hasNext, so the comma
+       ends up inside the entry that precedes it rather than as a
+       separate sibling between two entries; that's what lets a
+       consumer's CSS put each entry on its own line (entry { display:
+       block }) without a lone comma stranding itself on a line of its
+       own. Never itself foldable="true" - see this file's header
+       comment. -->
+  <xsl:function name="zxd:entry" as="element(xdm:group)">
+    <xsl:param name="tokens" as="element()*"/>
+    <xsl:param name="hasNext" as="xs:boolean"/>
+    <xdm:group kind="entry" foldable="false">
+      <xsl:sequence select="$tokens"/>
+      <xsl:if test="$hasNext"><xsl:sequence select="zxd:punct(', ')"/></xsl:if>
+    </xdm:group>
+  </xsl:function>
+
   <!-- Renders a sequence of xdm:item elements the way xdm-view-text.xsl's
        zxd:render-item-seq-text does: 0 items -> a single '()' punct token,
        1 item -> just that item's own tokens (no wrapping group), 2+ items
-       -> a foldable "sequence" group, parenthesized and comma-separated. -->
+       -> a foldable "sequence" group, parenthesized and comma-separated,
+       one kind="entry" per item. -->
   <xsl:function name="zxd:render-item-seq-tokens" as="element()*">
     <xsl:param name="items" as="element(xdm:item)*"/>
     <xsl:choose>
@@ -105,8 +128,7 @@
         <xdm:group kind="sequence" foldable="{$foldable}">
           <xsl:sequence select="zxd:punct('(')"/>
           <xsl:for-each select="$items">
-            <xsl:if test="position() gt 1"><xsl:sequence select="zxd:punct(', ')"/></xsl:if>
-            <xsl:sequence select="zxd:render-payload-tokens(./*[1])"/>
+            <xsl:sequence select="zxd:entry(zxd:render-payload-tokens(./*[1]), position() ne last())"/>
           </xsl:for-each>
           <xsl:sequence select="zxd:punct(')')"/>
         </xdm:group>
@@ -199,8 +221,7 @@
     <xdm:group kind="map" foldable="{$foldable}">
       <xsl:sequence select="zxd:punct('{')"/>
       <xsl:for-each select="$entryEls">
-        <xsl:if test="position() gt 1"><xsl:sequence select="zxd:punct(', ')"/></xsl:if>
-        <xsl:sequence select="zxd:render-entry-tokens(.)"/>
+        <xsl:sequence select="zxd:entry(zxd:render-entry-tokens(.), position() ne last())"/>
       </xsl:for-each>
       <xsl:sequence select="zxd:punct('}')"/>
     </xdm:group>
@@ -224,8 +245,7 @@
     <xdm:group kind="array" foldable="{$foldable}">
       <xsl:sequence select="zxd:punct('[')"/>
       <xsl:for-each select="$memberEls">
-        <xsl:if test="position() gt 1"><xsl:sequence select="zxd:punct(', ')"/></xsl:if>
-        <xsl:sequence select="zxd:render-item-seq-tokens(./xdm:item)"/>
+        <xsl:sequence select="zxd:entry(zxd:render-item-seq-tokens(./xdm:item), position() ne last())"/>
       </xsl:for-each>
       <xsl:sequence select="zxd:punct(']')"/>
     </xdm:group>

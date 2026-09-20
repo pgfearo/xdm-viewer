@@ -1,0 +1,125 @@
+/*
+   Styles an <xdm:token>/<xdm:group> tree - the output of
+   xdm:view-tokens()/xdm:persisted-to-token-view() (see
+   src/xdm-view-tokens.xsl) - as colorized, foldable, editor-style code.
+
+   Every color is a var() with a literal fallback (a dark palette
+   approximating VS Code's own Dark+ defaults), so this file works
+   verbatim in both places it's meant to run: standalone in a plain
+   browser (the --vscode-* variable is simply undefined, so the fallback
+   applies) and inside an actual VS Code webview (the real theme variable
+   wins, no matter what it is - light, dark, or a custom theme).
+
+   Deliberately not namespace-qualified: CSS type/attribute selectors
+   match by local name regardless of an element's actual namespace unless
+   an @namespace rule says otherwise, so plain `token`/`group` selectors
+   already match the xdm: namespaced elements xdm-view-tokens.xsl
+   produces - no @namespace rule here, on purpose.
+*/
+
+.xdm-tokens-root {
+  font-family: var(--vscode-editor-font-family, ui-monospace, Menlo, Consolas, monospace);
+  font-size: var(--vscode-editor-font-size, 14px);
+  line-height: 1.6;
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+token,
+group {
+  display: inline;
+}
+
+token[type="string"] { color: var(--vscode-debugTokenExpression-string, #ce9178); }
+token[type="number"] { color: var(--vscode-debugTokenExpression-number, #b5cea8); }
+token[type="boolean"] { color: var(--vscode-debugTokenExpression-boolean, #569cd6); }
+token[type="name"] { color: var(--vscode-debugTokenExpression-name, #9cdcfe); }
+token[type="value"] { color: var(--vscode-debugTokenExpression-value, #4ec9b0); }
+
+/* No VS Code counterpart - stays in the default foreground, same as the
+   Debug Console leaves its own punctuation uncolored. */
+token[type="punct"] {
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  opacity: 0.7;
+}
+
+/* --- Folding ------------------------------------------------------- */
+/* Only added (by xdm-view-tokens.js) to a group whose foldable="true" -
+   see this file's header and xdm-view-tokens.xsl's own header comment
+   for what foldable means. */
+
+.xdm-fold-toggle {
+  display: inline-block;
+  width: 1em;
+  margin-right: 0.1em;
+  text-align: center;
+  color: var(--vscode-editorGutter-foldingControlForeground, #858585);
+  cursor: pointer;
+  user-select: none;
+}
+
+.xdm-fold-toggle:hover {
+  color: var(--vscode-icon-foreground, #c5c5c5);
+}
+
+.xdm-fold-toggle::before {
+  content: "▾";
+}
+
+/* Collapse state is an attribute (collapsed="true"/"false"), not a
+   class, deliberately - CSS class selectors are only defined to match
+   the class attribute for elements in namespaces a browser specifically
+   special-cases as HTML-like (HTML, SVG, MathML). xdm-view-tokens.xsl's
+   own xdm: namespace isn't one of those, so a class selector here
+   (confirmed empirically: it silently never applies, even though
+   classList/className and Element.matches() both still claim it
+   worked) would leave folding permanently visually broken. Type and
+   attribute selectors are namespace-agnostic and don't have this
+   problem - see e.g. token[type=...]/group[kind=...] above, which do
+   work correctly against these same elements. */
+group[collapsed="true"] > .xdm-fold-toggle::before {
+  content: "▸";
+}
+
+.xdm-ellipsis {
+  display: none;
+  margin: 0 0.2em;
+  padding: 0 0.3em;
+  border-radius: 3px;
+  font-style: italic;
+  color: var(--vscode-editorGutter-foldingControlForeground, #858585);
+  background: var(--vscode-editor-foldBackground, rgba(255, 255, 255, 0.08));
+}
+
+group[collapsed="true"] > .xdm-ellipsis {
+  display: inline;
+}
+
+group[collapsed="true"] > .xdm-fold-body {
+  display: none;
+}
+
+/* One row (map entry / array member / sequence item) per line, indented
+   one step further than its own container - see xdm-view-tokens.xsl's
+   header comment for why this is a plain CSS display switch rather than
+   anything computed by the XSLT: nested indentation then just falls out
+   of the ordinary block box model (each level's own padding stacks on
+   top of its already-shifted ancestor's), no depth tracking needed. Only
+   applies inside an expanded (fold-wired) container - a compact,
+   non-foldable map/array ('{...}' on one line) leaves its entries
+   inline, unaffected by this rule. */
+.xdm-fold-body > group[kind="entry"] {
+  display: block;
+  padding-left: 1.2em;
+}
+
+/* --- Page chrome (standalone demo only - a real VS Code notebook
+   renderer supplies its own page/body styling, this file's own concern
+   stops at .xdm-tokens-root) --- */
+
+body {
+  background: var(--vscode-editor-background, #1e1e1e);
+  margin: 0;
+  padding: 1.5rem;
+}
