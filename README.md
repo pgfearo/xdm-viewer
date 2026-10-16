@@ -293,6 +293,17 @@ prefixed element names rather than the full namespaces included when using the X
 /Q{com.examples/books}books[1]/Q{com.examples/books}book[2]
 ```
 
+An XPath 4.0 JNode (e.g. from `jtree()`, or a path step over a map, with an
+XSLT 4.0 processor such as Saxon 13) is shown the same way: its path within
+its tree, from `fn:path()`, above the value it wraps:
+
+```
+customer: /customer
+          {'name': 'Sam'}
+quoted:   /get("first name")
+          'S'
+```
+
 ## Example
 
 ```sh
