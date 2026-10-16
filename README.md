@@ -13,6 +13,11 @@ any of three forms:
   (e.g. a custom syntax-highlighting UI) that wants to colour/fold the
   value itself without re-parsing rendered text
 
+<img src="images/debug-color-jnodes.png" width="900" alt="xdm:view-text($value, true()) rendered in a terminal">
+
+<p align="center"><em>Sample output from xdm:debug-color() - includes JNode values from XPath 4.0</em></p>
+
+
 ## Background
 
 This is the spiritual successor to [xpath-result-serializer](https://github.com/pgfearo/xpath-result-serializer),
