@@ -13,6 +13,8 @@ any of three forms:
   (e.g. a custom syntax-highlighting UI) that wants to colour/fold the
   value itself without re-parsing rendered text
 
+JNode types in the XPath 4.0 Data Model are also supported - the screenshot below, shows the path for each variable that is a JNode:
+
 <img src="images/debug-color-jnodes.png" width="900" alt="xdm:view-text($value, true()) rendered in a terminal">
 
 <p align="center"><em>Sample output from xdm:debug-color() - includes JNode values from XPath 4.0</em></p>
