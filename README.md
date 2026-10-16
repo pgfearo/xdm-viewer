@@ -370,6 +370,19 @@ representative value's rendering contains the expected fragments
 key iteration order isn't guaranteed, so an exact expected string would be
 fragile.
 
+### XPath 4.0 tests
+
+`tests/xpath40/` holds tests for XPath 4.0 values: `test-debug-jnodes.xsl`
+checks that `xdm:debug` shows each JNode's path above its value. These are
+XSLT 4.0 stylesheets, so `tests/run.sh` doesn't run them. They need Saxon-PE
+or Saxon-EE 13 (Saxon-HE 13 rejects XPath 4.0 syntax), with XPath 4.0 syntax
+enabled. Run each one from the repository root, e.g.:
+
+```sh
+java -cp /path/to/saxon-pe-13.0.jar net.sf.saxon.Transform \
+  -xsl:tests/xpath40/test-debug-jnodes.xsl -it --allowSyntaxExtensions:on
+```
+
 ## Requirements
 
 Same as `xdm-persistence`: an XSLT 3.0 / XPath 3.1 processor with maps,
