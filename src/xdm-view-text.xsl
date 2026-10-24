@@ -238,6 +238,67 @@
     <xsl:sequence select="zxd:debug-core($title, $labels, true(), $level)"/>
   </xsl:function>
 
+  <!-- A drop-in for fn:trace($value, $label): returns $value unchanged and
+       writes it with xsl:message - as '$label: ' then the value rendered
+       the same way as a value in xdm:debug (a node shows its xdm:path()
+       location above a pruned copy), pretty-printed over several lines
+       where it has structure. fn:trace's own format is
+       implementation-defined: Saxon writes one line per item, with a map
+       or array all on one line.
+
+       Color is on by default - the opposite of xdm:view-text - since a
+       trace is read in a terminal or console that shows it. The NO_COLOR
+       environment variable (https://no-color.org) turns it off for every
+       call, e.g. where messages go to a log file; the 3-argument form
+       sets it for one call. Through Saxon's default message handling, the
+       color codes are written XML-escaped (see the README's "Color
+       output"), so NO_COLOR or false() is needed there too.
+
+       $label may be the empty sequence (or omitted), when only the value
+       is written.
+
+       Unlike fn:trace, which may report the items of a lazily evaluated
+       value one at a time as they're used, xdm:trace reads all of
+       $value to render it before returning it. -->
+  <xsl:function name="xdm:trace" as="item()*">
+    <xsl:param name="value" as="item()*"/>
+    <xsl:sequence select="xdm:trace($value, (), zxd:trace-color-default())"/>
+  </xsl:function>
+
+  <xsl:function name="xdm:trace" as="item()*">
+    <xsl:param name="value" as="item()*"/>
+    <xsl:param name="label" as="xs:string?"/>
+    <xsl:sequence select="xdm:trace($value, $label, zxd:trace-color-default())"/>
+  </xsl:function>
+
+  <xsl:function name="xdm:trace" as="item()*">
+    <xsl:param name="value" as="item()*"/>
+    <xsl:param name="label" as="xs:string?"/>
+    <xsl:param name="useColor" as="xs:boolean"/>
+    <xsl:message select="zxd:trace-text($value, $label, $useColor)"/>
+    <xsl:sequence select="$value"/>
+  </xsl:function>
+
+  <!-- color unless the NO_COLOR environment variable is set, to any value -->
+  <xsl:function name="zxd:trace-color-default" as="xs:boolean">
+    <xsl:sequence select="empty(environment-variable('NO_COLOR'))"/>
+  </xsl:function>
+
+  <!-- what xdm:trace writes: the label (colored as an xdm:debug label is)
+       and the value, whose lines after the first are indented to start
+       under its first -->
+  <xsl:function name="zxd:trace-text" as="xs:string">
+    <xsl:param name="value" as="item()*"/>
+    <xsl:param name="label" as="xs:string?"/>
+    <xsl:param name="useColor" as="xs:boolean"/>
+    <xsl:variable name="items" as="element(xdm:item)*" select="xdm:to-document(zxd:husk-value($value))/xdm:sequence/xdm:item"/>
+    <xsl:variable name="rendered" as="xs:string" select="zxd:render-item-seq-text($items, $useColor, 0)"/>
+    <xsl:sequence select="
+      if (empty($label)) then $rendered
+      else zxd:debug-label-prefix($label, string-length($label), $useColor) ||
+        zxd:indent-continuation-lines($rendered, zxd:pad-right('', string-length($label) + 2))"/>
+  </xsl:function>
+
   <xsl:function name="zxd:debug-core" as="xs:string">
     <xsl:param name="title" as="xs:string"/>
     <xsl:param name="labels" as="map(xs:string, item()*)"/>

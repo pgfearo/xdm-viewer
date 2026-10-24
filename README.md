@@ -47,7 +47,7 @@ github/
 
 | File | Functions / Purpose |
 |---|---|
-| `src/xdm-view-text.xsl` | `xdm:view-text($value, $useColor?)`<br>`xdm:persisted-to-text-view($doc, $useColor?)` |
+| `src/xdm-view-text.xsl` | `xdm:view-text($value, $useColor?)`<br>`xdm:persisted-to-text-view($doc, $useColor?)`<br>`xdm:debug($title, $labels, $level?)`, `xdm:debug-color(...)`<br>`xdm:trace($value, $label?, $useColor?)` |
 | `src/xdm-view-html.xsl` | `xdm:view-html($value)`<br>`xdm:persisted-to-html-view($doc)`<br>`xdm:view-html-fragment($value)`<br>`xdm:persisted-to-html-fragment($doc)` |
 | `src/xdm-view-tokens.xsl` | `xdm:view-tokens($value, $minimize?)`<br>`xdm:persisted-to-token-view($doc)` |
 | `src/xdm-view-common.xsl` | `xdm:path($node)`<br>plus other helpers shared by all three renderers |
@@ -284,6 +284,33 @@ node:  item
   input:  'raw text'
   parsed: true()
   ```
+
+### `xdm:trace` - A pretty-printed `fn:trace`
+
+`xdm:trace($value, $label)` is a drop-in replacement for XPath's
+`trace($value, $label)`: it returns `$value` unchanged, so it can wrap any
+expression, and writes the value with `xsl:message`. Where `fn:trace`'s
+format is implementation-defined (Saxon writes one line per item, with a
+map or array on one line), `xdm:trace` writes the label, then the value
+rendered as `xdm:debug` renders one - pretty-printed, with a node's
+`xdm:path()` location above a pruned copy:
+
+```xml
+<xsl:variable name="total" select="sum(xdm:trace($order/line ! (@qty * @price), 'line totals'))"/>
+<xsl:variable name="customer" select="xdm:trace($customers?($id), 'customer')"/>
+```
+
+```
+line totals: (7.5, 12, 17.5)
+customer: {
+            'name': 'Ada',
+            'langs': ['xslt', 'xpath']
+          }
+```
+
+- `xdm:trace($value)` writes the value alone, without a label.
+- Color is **on** by default - unlike `xdm:view-text` - as a trace is read in a terminal or console. Set the `NO_COLOR` environment variable (to any value - see [no-color.org](https://no-color.org)) to turn it off for every call, or use `xdm:trace($value, $label, false())` for one call. Through Saxon's default message handling, the color codes are written XML-escaped (see "Color output" below), so turn color off there.
+- `xdm:trace` reads all of `$value` to render it before returning it, where `fn:trace` may report the items of a lazily evaluated value one at a time as they're used - e.g. `head(xdm:trace($items))` reads all of `$items`.
 
 ### `xdm:path` - An XPath location for debugging
 
